@@ -230,4 +230,28 @@ async def youtube(ctx, url: str):
 
     except Exception as e:
         await ctx.send(f"❌ Ошибка при загрузке: {str(e)}")
+import os
+from discord.ext import commands
+
+@bot.command()
+async def videos(ctx):
+    folder_path = "downloads"
+
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+
+    files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')]
+
+    if not files:
+        await ctx.send("📂 Нет сохранённых видео.")
+        return
+
+    file_list = "\n".join([f"📼 {f}" for f in files])
+    message = f"🎥 Список сохранённых видео:\n\n{file_list}"
+
+    # Если список слишком длинный — Discord не примет сообщение
+    if len(message) > 2000:
+        await ctx.send("📁 Слишком много файлов для отображения.")
+    else:
+        await ctx.send(message)
 bot.run(TOKEN)

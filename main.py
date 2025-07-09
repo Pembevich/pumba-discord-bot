@@ -100,4 +100,37 @@ async def dm(ctx, user_id: int, *, message: str):
         await ctx.send("❌ Пользователь с таким ID не найден.")
     except Exception as e:
         await ctx.send(f"⚠️ Ошибка: {e}")
+
+import aiohttp
+from PIL import Image
+import io
+
+@bot.command()
+async def gif(ctx):
+    """Создаёт GIF из прикреплённых изображений"""
+    if not ctx.message.attachments:
+        await ctx.send("❌ Пожалуйста, прикрепи изображения к сообщению с этой командой.")
+        return
+
+    images = []
+    for attachment in ctx.message.attachments:
+        if attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+            async with aiohttp.ClientSession() as session:
+                async with session.get(attachment.url) as resp:
+                    if resp.status != 200:
+                        continue
+                    data = io.BytesIO(await resp.read())
+                    img = Image.open(data).convert("RGBA")
+                    images.append(img)
+
+    if len(images) < 2:
+        await ctx.send("❗️Нужно хотя бы 2 изображения для создания GIF.")
+        return
+
+    # Конвертация в gif
+    gif_bytes = io.BytesIO()
+    images[0].save(gif_bytes, format='GIF', save_all=True, append_images=images[1:], duration=300, loop=0)
+    gif_bytes.seek(0)
+
+    await ctx.send("🎞️ Вот твоя GIF:", file=discord.File(gif_bytes, filename="result.gif"))
 bot.run(TOKEN)

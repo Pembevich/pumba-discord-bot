@@ -87,4 +87,17 @@ async def info(ctx, title: str):
         await ctx.send(f"📌 **{title}**:\n{result[0]}")
     else:
         await ctx.send("❗ Информация не найдена.")
+@bot.command()
+async def dm(ctx, user_id: int, *, message: str):
+    """Отправить личное сообщение по ID пользователя"""
+    try:
+        user = await bot.fetch_user(user_id)
+        await user.send(message)
+        await ctx.send(f"✅ Сообщение отправлено пользователю с ID {user_id}")
+    except discord.Forbidden:
+        await ctx.send("❌ Я не могу отправить сообщение этому пользователю (возможно, у него закрыт ЛС).")
+    except discord.NotFound:
+        await ctx.send("❌ Пользователь с таким ID не найден.")
+    except Exception as e:
+        await ctx.send(f"⚠️ Ошибка: {e}")
 bot.run(TOKEN)

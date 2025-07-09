@@ -139,66 +139,46 @@ async def dm(ctx, user_id: int, *, message_content: str):
 # !gif - генерация GIF из картинки или видео
 @bot.command()
 async def gif(ctx):
-    await ctx.send("⏳ Обрабатываю видео...")
+    """Создаёт GIF из изображений или видео"""
+    if not ctx.message.attachments:
+        await ctx.send("❌ Пожалуйста, прикрепи изображение или видео к сообщению.")
+        return
 
-    try:
-        # Проверяем сообщение, на которое ответили
-        reference = ctx.message.reference
-        if reference:
-            replied_message = await ctx.channel.fetch_message(reference.message_id)
-            attachments = replied_message.attachments
-        else:
-            attachments = ctx.message.attachments
+    attachment = ctx.message.attachments[0]
+    file_url = attachment.url
+    file_name = attachment.filename.lower()
 
-        video_path = None
+    # Обработка видео
+    if file_name.endswith(('.mp4', '.mov', '.webm')):
+        await ctx.send("⏳ Обрабатываю видео, это может занять несколько секунд...")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(file_url) as resp:
+                if resp.status != 200:
+                    await ctx.send("❌ Не удалось скачать видео.")
+                    return
+                video_bytes = await resp.read()
 
-        # Ищем видео среди вложений
-        for attachment in attachments:
-            if attachment.filename.lower().endswith((".mp4", ".webm", ".mov")):
-                filename = f"{uuid.uuid4().hex}_{attachment.filename}"
-                video_path = os.path.join("downloads", filename)
+        # Сохраняем видео во временный файл
+        temp_video_path = "temp_video.mp4"
+        with open(temp_video_path, "wb") as f:
+            f.write(video_bytes)
 
-                # Скачиваем видео
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(attachment.url) as resp:
-                        if resp.status == 200:
-                            with open(video_path, "wb") as f:
-                                f.write(await resp.read())
+        try:
+            clip = VideoFileClip(temp_video_path).subclip(0, min(5, VideoFileClip(temp_video_path).duration))
+            gif_path = "output.gif"
+            clip.write_gif(gif_path, fps=10)
 
-        if not video_path:
-            await ctx.send("⚠️ Нет доступных видео для обработки.")
-            return
+            await ctx.send("🎞️ Вот твоя GIF из видео:", file=discord.File(gif_path))
+        except Exception as e:
+            await ctx.send(f"⚠️ Ошибка при обработке видео: {e}")
+        finally:
+            if os.path.exists(temp_video_path):
+                os.remove(temp_video_path)
+            if os.path.exists("output.gif"):
+                os.remove("output.gif")
+        return
 
-        # Обрабатываем видео
-        clip = VideoFileClip(video_path).subclip(0, min(5, VideoFileClip(video_path).duration))
-        clip_resized = clip.resize(height=360)
-
-        frames = []
-        for frame in clip_resized.iter_frames(fps=10):
-            img = Image.fromarray(frame).convert("RGB")
-            frames.append(img)
-
-        gif_path = os.path.join("downloads", f"{uuid.uuid4().hex}.gif")
-        frames[0].save(
-            gif_path,
-            save_all=True,
-            append_images=frames[1:],
-            loop=0,
-            duration=int(1000 / 10),
-            optimize=True,
-            disposal=2
-        )
-
-        await ctx.send("✅ Гифка готова!", file=discord.File(gif_path))
-
-        # Удаление временных файлов
-        os.remove(video_path)
-        os.remove(gif_path)
-
-    except Exception as e:
-        await ctx.send(f"⚠️ Ошибка при обработке: {e}")
-
-    # Обработка изображений (как и раньше)
+    # Обработка изображений
     images = []
     for attachment in ctx.message.attachments:
         if attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
@@ -210,19 +190,16 @@ async def gif(ctx):
                     img = Image.open(data).convert("RGBA")
                     images.append(img)
 
-    if images:
-        gif_bytes = io.BytesIO()
-        images[0].save(
-            gif_bytes,
-            format='GIF',
-            save_all=True,
-            append_images=images[1:] if len(images) > 1 else [images[0]]*3,
-            duration=500,
-            loop=0
-        )
-        gif_bytes.seek(0)
-        await ctx.send("🎞️ Вот твоя GIF:", file=discord.File(gif_bytes, filename="result.gif"))
+    if len(images) == 0:
+        await ctx.send("❌ Поддерживаются только изображения и видео.")
+        return
 
+    # Создание GIF из одного или нескольких изображений
+    gif_bytes = io.BytesIO()
+    images[0].save(gif_bytes, format='GIF', save_all=True, append_images=images[1:] if len(images) > 1 else [images[0]]*3, duration=500, loop=0)
+    gif_bytes.seek(0)
+
+    await ctx.send("🎞️ Вот твоя GIF:", file=discord.File(gif_bytes, filename="result.gif"))
 # !youtube - скачивание видео
 @bot.command()
 async def youtube(ctx, url: str):

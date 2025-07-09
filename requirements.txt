@@ -4,5 +4,3 @@ aiosqlite
 pillow
 aiohttp
 moviepy
-pillow
-aiohttp

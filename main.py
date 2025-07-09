@@ -51,11 +51,14 @@ async def message(ctx, user: discord.Member, *, text):
         await ctx.send("Сообщение отправлено.")
     except discord.Forbidden:
         await ctx.send("Не удалось отправить сообщение. Возможно, пользователь отключил ЛС.")
-import sqlite3
+
+import discord
 from discord.ext import commands
 
-bot = commands.Bot(command_prefix='!')
+intents = discord.Intents.default()
+intents.message_content = True  # обязательно, чтобы бот видел сообщения
 
+bot = commands.Bot(command_prefix='!', intents=intents)
 # Подключение к базе
 conn = sqlite3.connect('database.db')
 c = conn.cursor()

@@ -12,18 +12,11 @@ import uuid
 import imageio.v2 as imageio
 from discord.ui import Button, View
 
-# Полный сброс: удалим файл, если это не папка
-if os.path.exists("downloads"):
-    if os.path.isfile("downloads"):
-        os.remove("downloads")
-        print("❗ Файл 'downloads' удалён.")
-    elif not os.path.isdir("downloads"):
-        raise Exception("'downloads' существует, но это не директория.")
-
-# Создаём директорию заново
-if not os.path.exists("downloads"):
-    os.makedirs("downloads")
-    print("✅ Папка 'downloads' создана.")
+conn = sqlite3.connect("data.db")
+cursor = conn.cursor()
+cursor.execute("CREATE TABLE IF NOT EXISTS data (title TEXT, info TEXT)")
+conn.commit()
+conn.close()
 # Загрузка переменных окружения
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -273,10 +266,5 @@ async def data_base(ctx):
 
     # Отправка интерфейса
     await ctx.send("```Выберите действие:```", view=view)
-conn = sqlite3.connect("data.db")
-cursor = conn.cursor()
-cursor.execute("CREATE TABLE IF NOT EXISTS data (title TEXT, info TEXT)")
-conn.commit()
-conn.close()
 # Запуск бота
 bot.run(TOKEN)

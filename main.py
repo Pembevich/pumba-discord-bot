@@ -61,10 +61,19 @@ async def info(ctx, user: discord.Member):
 async def message(ctx, user_id: int, *, message_content: str):
     try:
         user = await bot.fetch_user(user_id)
-        sender_name = ctx.author.display_name
+        sender_name = ctx.author.name
+
         full_message = f"📨 Сообщение от **{sender_name}**:\n{message_content}"
-        await user.send(full_message)
+
+        files = []
+        for attachment in ctx.message.attachments:
+            file_bytes = await attachment.read()
+            discord_file = discord.File(io.BytesIO(file_bytes), filename=attachment.filename)
+            files.append(discord_file)
+
+        await user.send(content=full_message, files=files)
         await ctx.send(f"✅ Сообщение отправлено пользователю с ID {user_id}.")
+
     except discord.NotFound:
         await ctx.send("❌ Пользователь не найден.")
     except discord.Forbidden:
@@ -73,16 +82,26 @@ async def message(ctx, user_id: int, *, message_content: str):
         await ctx.send(f"⚠️ Ошибка: {e}")
 
 # !dm - анонимное сообщение (только для авторизованных пользователей)
-@bot.command()
+@bot.command(name="dm")
 async def dm(ctx, user_id: int, *, message_content: str):
-    allowed_users = [968698192411652176]  # ← сюда добавь ID разрешённых пользователей
+    allowed_users = [968698192411652176]  # Замени на свои Discord ID
+
     if ctx.author.id not in allowed_users:
         await ctx.send("❌ У вас нет прав на использование этой команды.")
         return
+
     try:
         user = await bot.fetch_user(user_id)
-        await user.send(message_content)
+
+        files = []
+        for attachment in ctx.message.attachments:
+            file_bytes = await attachment.read()
+            discord_file = discord.File(io.BytesIO(file_bytes), filename=attachment.filename)
+            files.append(discord_file)
+
+        await user.send(content=message_content, files=files)
         await ctx.send(f"✅ Сообщение отправлено пользователю с ID {user_id}.")
+
     except discord.NotFound:
         await ctx.send("❌ Пользователь не найден.")
     except discord.Forbidden:

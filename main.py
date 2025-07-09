@@ -205,7 +205,7 @@ async def data_base(ctx):
     try:
         msg = await bot.wait_for("message", check=check, timeout=30.0)
         if msg.content != "TEST_PASSWORD":
-            await ctx.send("```\n[...]\n\n[НЕВЕРНЫЙ_ПАРОЛЬ]\n———————————-\n[WRONG_PASSWORD]\n```
+            await ctx.send("```\n[...]\n\n[НЕВЕРНЫЙ_ПАРОЛЬ]\n———————————-\n[WRONG_PASSWORD]\n```")
             return
     except asyncio.TimeoutError:
         await ctx.send("```\n[...]\n\n[ОТКЛЮЧЕНИЕ(ВРЕМЯ ОЖИДАНИЯ ИСТЕКЛО)]\n———————————-\n[INCONNECTING(TIME IS UP)]\n```")

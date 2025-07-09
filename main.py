@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import yt_dlp
 import uuid
 import imageio.v2 as imageio
+from discord.ui import Button, View
 
 # Полный сброс: удалим файл, если это не папка
 if os.path.exists("downloads"):
@@ -200,54 +201,77 @@ async def gif(ctx):
     gif_bytes.seek(0)
 
     await ctx.send("🎞️ Вот твоя GIF:", file=discord.File(gif_bytes, filename="result.gif"))
-# !youtube - скачивание видео
 @bot.command()
-async def youtube(ctx, url: str):
-    await ctx.send("📥 Загружаю видео...")
+async def data_base(ctx):
+    await ctx.send("```\n[ВВЕДИТЕ_ПАРОЛЬ]\n———————————-\n[ENTER_PASSWORD]\n```")
 
-    ydl_opts = {
-        'outtmpl': 'downloads/%(title)s.%(ext)s',
-        'format': 'mp4[height<=360]',
-        'quiet': True
-    }
+    def check(m):
+        return m.author == ctx.author and m.channel == ctx.channel
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info)
-
-        await ctx.send(f"✅ Видео загружено и сохранено как:\n`{filename}`")
-    except Exception as e:
-        await ctx.send(f"❌ Ошибка при загрузке: {e}")
-
-# !videos — список загруженных видео
-@bot.command()
-async def videos(ctx):
-    folder_path = "downloads"
-
-    # Проверяем, существует ли папка
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)  # создаём, если её нет
-        await ctx.send("📁 Папка `downloads` была создана, но пока в ней нет видео.")
+        msg = await bot.wait_for("message", check=check, timeout=30.0)
+        if msg.content != "TEST_PASSWORD":
+            await ctx.send("❌ Неверный пароль.")
+            return
+    except asyncio.TimeoutError:
+        await ctx.send("⌛ Время ожидания истекло.")
         return
 
-    # Получаем список файлов
-    files = os.listdir(folder_path)
-    video_files = [f for f in files if f.lower().endswith(('.mp4', '.mkv', '.webm', '.mov'))]
+    # Добро пожаловать
+    await ctx.send("```\n[ДОБРО_ПОЖАЛОВАТЬ_В_БАЗУ ДАННЫХ]\n———————————\n[WELCOME_TO_DATA_BASE]\n\n———————————\n\n[ОЖИДАНИЕ_КОМАНДЫ _ОТ_КОНСОЛИ]\n———————————\n[WAITING_FOR_COMMAND_OF_CONSOLE]\n```")
 
-    if not video_files:
-        await ctx.send("📭 В папке `downloads` пока нет видео.")
-        return
+    # Создание кнопок
+    view = View()
 
-    # Формируем сообщение
-    message = "**🎬 Список загруженных видео:**\n"
-    for i, name in enumerate(video_files, start=1):
-        message += f"{i}. `{name}`\n"
+    async def view_data_callback(interaction):
+        if interaction.user != ctx.author:
+            await interaction.response.send_message("⚠️ Это не для тебя.", ephemeral=True)
+            return
 
-    # Discord ограничивает длину сообщений 2000 символами
-    if len(message) > 2000:
-        await ctx.send("📄 Слишком много видео для отображения. Уточни вручную в папке `downloads`.")
-    else:
-        await ctx.send(message)
+        conn = sqlite3.connect("data.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT title, info FROM data")
+        rows = cursor.fetchall()
+        conn.close()
+
+        if rows:
+            content = "\n\n".join([f"📌 {title} — {info}" for title, info in rows])
+        else:
+            content = "❗ Нет записей в базе данных."
+
+        await interaction.response.send_message(f"```\n{content}\n\n[…]```", ephemeral=True)
+
+    async def add_data_callback(interaction):
+        if interaction.user != ctx.author:
+            await interaction.response.send_message("⚠️ Это не для тебя.", ephemeral=True)
+            return
+
+        await interaction.response.send_message("Введите заголовок:", ephemeral=True)
+        try:
+            title_msg = await bot.wait_for("message", check=check, timeout=30.0)
+            await ctx.send("Введите информацию:")
+            info_msg = await bot.wait_for("message", check=check, timeout=30.0)
+
+            conn = sqlite3.connect("data.db")
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO data (title, info) VALUES (?, ?)", (title_msg.content, info_msg.content))
+            conn.commit()
+            conn.close()
+
+            await ctx.send("✅ Запись добавлена. \n```[…]```")
+
+        except asyncio.TimeoutError:
+            await ctx.send("⌛ Время ожидания истекло.")
+
+    # Добавляем кнопки
+    view.add_item(Button(label="📄 Просмотр данных", style=discord.ButtonStyle.green, custom_id="view"))
+    view.add_item(Button(label="➕ Добавить запись", style=discord.ButtonStyle.blurple, custom_id="add"))
+
+    # Назначаем обработчики
+    view.children[0].callback = view_data_callback
+    view.children[1].callback = add_data_callback
+
+    # Отправка интерфейса
+    await ctx.send("```Выберите действие:```", view=view)
 # Запуск бота
 bot.run(TOKEN)

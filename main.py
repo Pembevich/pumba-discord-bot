@@ -126,16 +126,16 @@ async def dm(ctx, user_id: int, *, message_content: str):
 @bot.command()
 async def gif(ctx):
     if not ctx.message.attachments:
-        await ctx.send("❌ Пожалуйста, прикрепи изображение или видео к сообщению.")
+        await ctx.send("❌ Пожалуйста, прикрепи видео или изображение.")
         return
 
     attachment = ctx.message.attachments[0]
     file_url = attachment.url
     file_name = attachment.filename.lower()
 
-    # Обработка видео
     if file_name.endswith(('.mp4', '.mov', '.webm')):
-        await ctx.send("⏳ Обрабатываю видео, подожди немного...")
+        await ctx.send("⏳ Обрабатываю видео...")
+
         async with aiohttp.ClientSession() as session:
             async with session.get(file_url) as resp:
                 if resp.status != 200:
@@ -149,16 +149,19 @@ async def gif(ctx):
 
         try:
             clip = VideoFileClip(temp_video_path).subclip(0, min(5, VideoFileClip(temp_video_path).duration))
+            
+            # Увеличим качество GIF
             gif_path = "output.gif"
-            clip.write_gif(gif_path, fps=10)
-            await ctx.send("🎞️ Вот твоя GIF из видео:", file=discord.File(gif_path))
+            clip = clip.resize(height=360)  # увеличиваем разрешение
+            clip.write_gif(gif_path, fps=15, program="ImageMagick")  # fps + более мощный движок
+            
+            await ctx.send("🎞️ Вот улучшенная GIF:", file=discord.File(gif_path))
         except Exception as e:
-            await ctx.send(f"⚠️ Ошибка при обработке видео: {e}")
+            await ctx.send(f"⚠️ Ошибка при обработке: {e}")
         finally:
-            if os.path.exists(temp_video_path):
-                os.remove(temp_video_path)
-            if os.path.exists("output.gif"):
-                os.remove("output.gif")
+            os.remove(temp_video_path)
+            if os.path.exists(gif_path):
+                os.remove(gif_path)
         return
 
     # Обработка изображений

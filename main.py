@@ -8,6 +8,8 @@ from discord.ext import commands
 from moviepy.editor import VideoFileClip
 from dotenv import load_dotenv
 import yt_dlp
+import uuid
+import imageio.v2 as imageio
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -125,44 +127,48 @@ async def dm(ctx, user_id: int, *, message_content: str):
 # !gif - генерация GIF из картинки или видео
 @bot.command()
 async def gif(ctx):
-    if not ctx.message.attachments:
-        await ctx.send("❌ Пожалуйста, прикрепи видео или изображение.")
-        return
+    await ctx.send("⏳ Обрабатываю видео...")
 
-    attachment = ctx.message.attachments[0]
-    file_url = attachment.url
-    file_name = attachment.filename.lower()
+    try:
+        video_files = [f for f in os.listdir("downloads") if f.endswith((".mp4", ".webm", ".mov"))]
+        if not video_files:
+            await ctx.send("⚠️ Нет доступных видео для обработки.")
+            return
 
-    if file_name.endswith(('.mp4', '.mov', '.webm')):
-        await ctx.send("⏳ Обрабатываю видео...")
+        latest_video = max(video_files, key=lambda f: os.path.getctime(os.path.join("downloads", f)))
+        input_path = os.path.join("downloads", latest_video)
+        output_path = os.path.join("downloads", f"{uuid.uuid4().hex}.gif")
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(file_url) as resp:
-                if resp.status != 200:
-                    await ctx.send("❌ Не удалось скачать видео.")
-                    return
-                video_bytes = await resp.read()
+        # Чтение видео
+        clip = VideoFileClip(input_path).subclip(0, min(5, VideoFileClip(input_path).duration))  # макс 5 секунд
 
-        temp_video_path = "temp_video.mp4"
-        with open(temp_video_path, "wb") as f:
-            f.write(video_bytes)
+        # Установка размера для улучшения качества гифки
+        clip_resized = clip.resize(height=360)  # Можно увеличить до 480 или выше
 
-        try:
-            clip = VideoFileClip(temp_video_path).subclip(0, min(5, VideoFileClip(temp_video_path).duration))
-            
-            # Увеличим качество GIF
-            gif_path = "output.gif"
-            clip = clip.resize(height=360)  # увеличиваем разрешение
-            clip.write_gif(gif_path, fps=15, program="ImageMagick")  # fps + более мощный движок
-            
-            await ctx.send("🎞️ Вот улучшенная GIF:", file=discord.File(gif_path))
-        except Exception as e:
-            await ctx.send(f"⚠️ Ошибка при обработке: {e}")
-        finally:
-            os.remove(temp_video_path)
-            if os.path.exists(gif_path):
-                os.remove(gif_path)
-        return
+        # Сохраняем как временные кадры
+        frames = []
+        for frame in clip_resized.iter_frames(fps=10):  # fps можно поднять до 15 для плавности
+            img = Image.fromarray(frame)
+            img = img.convert("RGB")
+            img = img.resize(img.size, Image.Resampling.LANCZOS)
+            frames.append(img)
+
+        # Сохраняем как гифку
+        frames[0].save(
+            output_path,
+            save_all=True,
+            append_images=frames[1:],
+            loop=0,
+            duration=int(1000 / 10),  # 10 fps
+            optimize=True,
+            disposal=2
+        )
+
+        await ctx.send("✅ Гифка готова!", file=discord.File(output_path))
+
+        os.remove(output_path)  # Удаляем гифку после отправки
+    except Exception as e:
+        await ctx.send(f"⚠️ Ошибка при обработке: {e}")
 
     # Обработка изображений
     images = []

@@ -11,6 +11,7 @@ import yt_dlp
 import uuid
 import imageio.v2 as imageio
 from discord.ui import Button, View
+import sqlite3
 
 conn = sqlite3.connect("data.db")
 cursor = conn.cursor()

@@ -11,6 +11,18 @@ import yt_dlp
 import uuid
 import imageio.v2 as imageio
 
+# Полный сброс: удалим файл, если это не папка
+if os.path.exists("downloads"):
+    if os.path.isfile("downloads"):
+        os.remove("downloads")
+        print("❗ Файл 'downloads' удалён.")
+    elif not os.path.isdir("downloads"):
+        raise Exception("'downloads' существует, но это не директория.")
+
+# Создаём директорию заново
+if not os.path.exists("downloads"):
+    os.makedirs("downloads")
+    print("✅ Папка 'downloads' создана.")
 # Загрузка переменных окружения
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")

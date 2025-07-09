@@ -239,25 +239,32 @@ async def youtube(ctx, url: str):
 import os
 from discord.ext import commands
 
+import os
+from discord.ext import commands
+
 @bot.command()
 async def videos(ctx):
     folder_path = "downloads"
 
     if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
-
-    files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')]
-
-    if not files:
-        await ctx.send("📂 Нет сохранённых видео.")
+        await ctx.send("❌ Папка с видео не найдена.")
         return
 
-    file_list = "\n".join([f"📼 {f}" for f in files])
-    message = f"🎥 Список сохранённых видео:\n\n{file_list}"
+    files = os.listdir(folder_path)
+    video_files = [f for f in files if f.lower().endswith(('.mp4', '.mkv', '.webm', '.mov'))]
 
-    # Если список слишком длинный — Discord не примет сообщение
+    if not video_files:
+        await ctx.send("❌ Видео пока не загружены.")
+        return
+
+    # Формируем список
+    message = "**🎬 Список загруженных видео:**\n"
+    for i, name in enumerate(video_files, start=1):
+        message += f"{i}. `{name}`\n"
+
+    # Учитываем лимит на 2000 символов
     if len(message) > 2000:
-        await ctx.send("📁 Слишком много файлов для отображения.")
+        await ctx.send("📄 Слишком много видео для отображения.")
     else:
         await ctx.send(message)
 bot.run(TOKEN)

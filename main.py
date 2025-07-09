@@ -236,11 +236,6 @@ async def youtube(ctx, url: str):
         await ctx.send(f"✅ Видео загружено и сохранено как:\n`{filename}`")
     except Exception as e:
         await ctx.send(f"❌ Ошибка при загрузке: {e}")
-import os
-from discord.ext import commands
-
-import os
-from discord.ext import commands
 
 @bot.command()
 async def videos(ctx):

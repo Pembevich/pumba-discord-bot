@@ -60,7 +60,20 @@ async def info(ctx, user: discord.Member):
 @bot.command()
 async def message(ctx, user_id: int, *, message_content: str):
     try:
-        user = await bot.fetch_user(user_id)
+        # Если передан не числовой user_id — пробуем распознать как ник
+        if not str(user_id).isdigit():
+            username_tag = str(user_id).strip()
+
+            # Ищем пользователя по тегу (имя#тег)
+            for member in ctx.guild.members:
+                if str(member) == username_tag:
+                    user = member
+                    break
+            else:
+                await ctx.send("❌ Пользователь с таким ником не найден.")
+                return
+        else:
+            user = await bot.fetch_user(user_id)
         sender_name = ctx.author.name
 
         full_message = f"📨 Сообщение от **{sender_name}**:\n{message_content}"

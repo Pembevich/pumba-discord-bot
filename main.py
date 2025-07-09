@@ -54,7 +54,7 @@ async def message(ctx, user: discord.Member, *, text):
 
 import discord
 from discord.ext import commands
-
+import sqlite3  # <-- вот это важно
 intents = discord.Intents.default()
 intents.message_content = True  # обязательно, чтобы бот видел сообщения
 

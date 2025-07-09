@@ -273,5 +273,10 @@ async def data_base(ctx):
 
     # Отправка интерфейса
     await ctx.send("```Выберите действие:```", view=view)
+conn = sqlite3.connect("data.db")
+cursor = conn.cursor()
+cursor.execute("CREATE TABLE IF NOT EXISTS data (title TEXT, info TEXT)")
+conn.commit()
+conn.close()
 # Запуск бота
 bot.run(TOKEN)

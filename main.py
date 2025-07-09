@@ -202,4 +202,32 @@ async def gif(ctx):
     gif_bytes.seek(0)
 
     await ctx.send("🎞️ Вот твоя GIF:", file=discord.File(gif_bytes, filename="result.gif"))
+import os
+from discord.ext import commands
+from pytube import YouTube
+
+@bot.command()
+async def youtube(ctx, url: str):
+    await ctx.send("⏬ Загружаю видео...")
+
+    try:
+        yt = YouTube(url)
+        stream = yt.streams.filter(progressive=True, file_extension="mp4").order_by('resolution').desc().first()
+
+        if not os.path.exists("downloads"):
+            os.makedirs("downloads")
+
+        filename = stream.default_filename
+        filepath = os.path.join("downloads", filename)
+        stream.download(output_path="downloads")
+
+        file_size = os.path.getsize(filepath)
+
+        if file_size < 8 * 1024 * 1024:
+            await ctx.send(file=discord.File(filepath))
+        else:
+            await ctx.send(f"✅ Видео скачано и сохранено: `{filepath}`\n(⚠️ слишком большое для отправки в Discord)")
+
+    except Exception as e:
+        await ctx.send(f"❌ Ошибка при загрузке: {str(e)}")
 bot.run(TOKEN)

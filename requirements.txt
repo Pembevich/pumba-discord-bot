@@ -3,3 +3,4 @@ dotenv
 aiosqlite
 pillow
 aiohttp
+moviepy

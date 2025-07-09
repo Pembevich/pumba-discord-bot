@@ -45,13 +45,17 @@ async def info(ctx, user: discord.Member):
         await ctx.send("Нет данных.")
 
 @bot.command()
-async def message(ctx, user: discord.Member, *, text):
+async def message(ctx, user_id: int, *, content):
     try:
-        await user.send(f"Сообщение от {ctx.author.name}: {text}")
-        await ctx.send("Сообщение отправлено.")
+        user = await bot.fetch_user(user_id)
+        await user.send(content)
+        await ctx.send(f"📩 Сообщение успешно отправлено {user.name}.")
+    except discord.NotFound:
+        await ctx.send("❌ Пользователь с таким ID не найден.")
     except discord.Forbidden:
-        await ctx.send("Не удалось отправить сообщение. Возможно, пользователь отключил ЛС.")
-
+        await ctx.send("❌ Невозможно отправить сообщение: пользователь запретил ЛС.")
+    except Exception as e:
+        await ctx.send(f"⚠️ Произошла ошибка: {e}")
 import discord
 from discord.ext import commands
 import sqlite3  # <-- вот это важно

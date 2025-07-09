@@ -142,47 +142,63 @@ async def gif(ctx):
     await ctx.send("⏳ Обрабатываю видео...")
 
     try:
-        video_files = [f for f in os.listdir("downloads") if f.endswith((".mp4", ".webm", ".mov"))]
-        if not video_files:
+        # Проверяем сообщение, на которое ответили
+        reference = ctx.message.reference
+        if reference:
+            replied_message = await ctx.channel.fetch_message(reference.message_id)
+            attachments = replied_message.attachments
+        else:
+            attachments = ctx.message.attachments
+
+        video_path = None
+
+        # Ищем видео среди вложений
+        for attachment in attachments:
+            if attachment.filename.lower().endswith((".mp4", ".webm", ".mov")):
+                filename = f"{uuid.uuid4().hex}_{attachment.filename}"
+                video_path = os.path.join("downloads", filename)
+
+                # Скачиваем видео
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(attachment.url) as resp:
+                        if resp.status == 200:
+                            with open(video_path, "wb") as f:
+                                f.write(await resp.read())
+
+        if not video_path:
             await ctx.send("⚠️ Нет доступных видео для обработки.")
             return
 
-        latest_video = max(video_files, key=lambda f: os.path.getctime(os.path.join("downloads", f)))
-        input_path = os.path.join("downloads", latest_video)
-        output_path = os.path.join("downloads", f"{uuid.uuid4().hex}.gif")
+        # Обрабатываем видео
+        clip = VideoFileClip(video_path).subclip(0, min(5, VideoFileClip(video_path).duration))
+        clip_resized = clip.resize(height=360)
 
-        # Чтение видео
-        clip = VideoFileClip(input_path).subclip(0, min(5, VideoFileClip(input_path).duration))  # макс 5 секунд
-
-        # Установка размера для улучшения качества гифки
-        clip_resized = clip.resize(height=360)  # Можно увеличить до 480 или выше
-
-        # Сохраняем как временные кадры
         frames = []
-        for frame in clip_resized.iter_frames(fps=10):  # fps можно поднять до 15 для плавности
-            img = Image.fromarray(frame)
-            img = img.convert("RGB")
-            img = img.resize(img.size, Image.Resampling.LANCZOS)
+        for frame in clip_resized.iter_frames(fps=10):
+            img = Image.fromarray(frame).convert("RGB")
             frames.append(img)
 
-        # Сохраняем как гифку
+        gif_path = os.path.join("downloads", f"{uuid.uuid4().hex}.gif")
         frames[0].save(
-            output_path,
+            gif_path,
             save_all=True,
             append_images=frames[1:],
             loop=0,
-            duration=int(1000 / 10),  # 10 fps
+            duration=int(1000 / 10),
             optimize=True,
             disposal=2
         )
 
-        await ctx.send("✅ Гифка готова!", file=discord.File(output_path))
+        await ctx.send("✅ Гифка готова!", file=discord.File(gif_path))
 
-        os.remove(output_path)  # Удаляем гифку после отправки
+        # Удаление временных файлов
+        os.remove(video_path)
+        os.remove(gif_path)
+
     except Exception as e:
         await ctx.send(f"⚠️ Ошибка при обработке: {e}")
 
-    # Обработка изображений
+    # Обработка изображений (как и раньше)
     images = []
     for attachment in ctx.message.attachments:
         if attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
@@ -194,14 +210,18 @@ async def gif(ctx):
                     img = Image.open(data).convert("RGBA")
                     images.append(img)
 
-    if len(images) == 0:
-        await ctx.send("❌ Поддерживаются только изображения и видео.")
-        return
-
-    gif_bytes = io.BytesIO()
-    images[0].save(gif_bytes, format='GIF', save_all=True, append_images=images[1:] if len(images) > 1 else [images[0]]*3, duration=500, loop=0)
-    gif_bytes.seek(0)
-    await ctx.send("🎞️ Вот твоя GIF:", file=discord.File(gif_bytes, filename="result.gif"))
+    if images:
+        gif_bytes = io.BytesIO()
+        images[0].save(
+            gif_bytes,
+            format='GIF',
+            save_all=True,
+            append_images=images[1:] if len(images) > 1 else [images[0]]*3,
+            duration=500,
+            loop=0
+        )
+        gif_bytes.seek(0)
+        await ctx.send("🎞️ Вот твоя GIF:", file=discord.File(gif_bytes, filename="result.gif"))
 
 # !youtube - скачивание видео
 @bot.command()

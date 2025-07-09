@@ -197,7 +197,7 @@ async def gif(ctx):
     await ctx.send("🎞️ Вот твоя GIF:", file=discord.File(gif_bytes, filename="result.gif"))
 @bot.command()
 async def data_base(ctx):
-    await ctx.send("```\n[ВВЕДИТЕ_ПАРОЛЬ]\n———————————-\n[ENTER_PASSWORD]\n```")
+    await ctx.send("```\n>...\n[ВВЕДИТЕ_ПАРОЛЬ]\n———————————-\n[ENTER_PASSWORD]\n\n>...\n```")
 
     def check(m):
         return m.author == ctx.author and m.channel == ctx.channel
@@ -205,21 +205,21 @@ async def data_base(ctx):
     try:
         msg = await bot.wait_for("message", check=check, timeout=30.0)
         if msg.content != "TEST_PASSWORD":
-            await ctx.send("❌ Неверный пароль.")
+            await ctx.send("```\n[...]\n\n[НЕВЕРНЫЙ_ПАРОЛЬ]\n———————————-\n[WRONG_PASSWORD]\n```
             return
     except asyncio.TimeoutError:
-        await ctx.send("⌛ Время ожидания истекло.")
+        await ctx.send("```\n[...]\n\n[ОТКЛЮЧЕНИЕ(ВРЕМЯ ОЖИДАНИЯ ИСТЕКЛО)]\n———————————-\n[INCONNECTING(TIME IS UP)]\n```")
         return
 
     # Добро пожаловать
-    await ctx.send("```\n[ДОБРО_ПОЖАЛОВАТЬ_В_БАЗУ ДАННЫХ]\n———————————\n[WELCOME_TO_DATA_BASE]\n\n———————————\n\n[ОЖИДАНИЕ_КОМАНДЫ _ОТ_КОНСОЛИ]\n———————————\n[WAITING_FOR_COMMAND_OF_CONSOLE]\n```")
+    await ctx.send("```\n[...]\n\n[ДОБРО_ПОЖАЛОВАТЬ_В_БАЗУ_ДАННЫХ]\n———————————\n[WELCOME_TO_DATA_BASE]\n\n———————————\n\n[ОЖИДАНИЕ_КОМАНДЫ _ОТ_КОНСОЛИ]\n———————————\n[WAITING_FOR_COMMAND_OF_CONSOLE]\n\n>...\n```")
 
     # Создание кнопок
     view = View()
 
     async def view_data_callback(interaction):
         if interaction.user != ctx.author:
-            await interaction.response.send_message("⚠️ Это не для тебя.", ephemeral=True)
+            await interaction.response.send_message("```\n[...]\n\n[ACCESS_GRUNTED]\n```", ephemeral=True)
             return
 
         conn = sqlite3.connect("data.db")
@@ -229,21 +229,21 @@ async def data_base(ctx):
         conn.close()
 
         if rows:
-            content = "\n\n".join([f"📌 {title} — {info}" for title, info in rows])
+            content = "\n\n".join([f">... {title} — {info}" for title, info in rows])
         else:
-            content = "❗ Нет записей в базе данных."
+            content = "```\n[...]\n\n[ЗАПИСИ_ОТСУТСТВУЮТ]\n———————————\n[THERE_ARE_NO_RECORDS]\n\n>...\n```"
 
         await interaction.response.send_message(f"```\n{content}\n\n[…]```", ephemeral=True)
 
     async def add_data_callback(interaction):
         if interaction.user != ctx.author:
-            await interaction.response.send_message("⚠️ Это не для тебя.", ephemeral=True)
+            await interaction.response.send_message("```\n[...]\n\n[ACCESS_GRUNTED]\n```", ephemeral=True)
             return
 
-        await interaction.response.send_message("Введите заголовок:", ephemeral=True)
+        await interaction.response.send_message("```\n[...]\n\n[НОВАЯ_ЗАПИСЬ]\n———————————\n[NEW_ENTRY]\n\n[ВВЕДИТЕ_НАЗВАНИЕ/ЗАГОЛОВОК]\n—————————\n[ENTER_TITLE/HEADLINE]\n\n>...\n```", ephemeral=True)
         try:
             title_msg = await bot.wait_for("message", check=check, timeout=30.0)
-            await ctx.send("Введите информацию:")
+            await ctx.send("```\n[...]\n\n[ВВЕДИТЕ_ОПИСАНИЕ/СОДЕРЖАНИЕ]\n———————————\n[ENTER_DISCRIPTION/CONTENT]\n\n>...\n```")
             info_msg = await bot.wait_for("message", check=check, timeout=30.0)
 
             conn = sqlite3.connect("data.db")
@@ -252,20 +252,20 @@ async def data_base(ctx):
             conn.commit()
             conn.close()
 
-            await ctx.send("✅ Запись добавлена. \n```[…]```")
+            await ctx.send("```[…]\n>```")
 
         except asyncio.TimeoutError:
-            await ctx.send("⌛ Время ожидания истекло.")
+            await ctx.send("```\n[...]\n\n[ОТКЛЮЧЕНИЕ(ВРЕМЯ ОЖИДАНИЯ ИСТЕКЛО)]\n———————————-\n[INCONNECTING(TIME IS UP)]\n```")
 
     # Добавляем кнопки
-    view.add_item(Button(label="📄 Просмотр данных", style=discord.ButtonStyle.green, custom_id="view"))
-    view.add_item(Button(label="➕ Добавить запись", style=discord.ButtonStyle.blurple, custom_id="add"))
+    view.add_item(Button(label="```\n> [ПРОСМОТР_ДАННЫХ]\n```", style=discord.ButtonStyle.grey, custom_id="view"))
+    view.add_item(Button(label="```\n> [ВНЕСТИ_ДАННЫЕ]\n```", style=discord.ButtonStyle.grey, custom_id="add"))
 
     # Назначаем обработчики
     view.children[0].callback = view_data_callback
     view.children[1].callback = add_data_callback
 
     # Отправка интерфейса
-    await ctx.send("```Выберите действие:```", view=view)
+    await ctx.send("```[КОМАНДЫ_КОНСОЛИ]:```", view=view)
 # Запуск бота
 bot.run(TOKEN)

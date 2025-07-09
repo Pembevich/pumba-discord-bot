@@ -45,15 +45,20 @@ async def info(ctx, user: discord.Member):
         await ctx.send("Нет данных.")
 
 @bot.command()
-async def message(ctx, user_id: int, *, content):
+async def message(ctx, user_id: int, *, message_content: str):
     try:
         user = await bot.fetch_user(user_id)
-        await user.send(content)
-        await ctx.send(f"📩 Сообщение успешно отправлено {user.name}.")
+        sender_name = ctx.author.name  # Или .display_name
+
+        full_message = f"📨 Сообщение от **{sender_name}**:\n{message_content}"
+        await user.send(full_message)
+        await ctx.send(f"✅ Сообщение отправлено пользователю с ID {user_id}.")
     except discord.NotFound:
-        await ctx.send("❌ Пользователь с таким ID не найден.")
+        await ctx.send("❌ Пользователь не найден.")
     except discord.Forbidden:
-        await ctx.send("❌ Невозможно отправить сообщение: пользователь запретил ЛС.")
+        await ctx.send("❌ Невозможно отправить сообщение — пользователь запретил ЛС.")
+    except Exception as e:
+        await ctx.send(f"⚠️ Ошибка: {e}")
     except Exception as e:
         await ctx.send(f"⚠️ Произошла ошибка: {e}")
 import discord
@@ -118,11 +123,8 @@ async def dm(ctx, user_id: int, *, message_content: str):
 
     try:
         user = await bot.fetch_user(user_id)
-        sender_name = ctx.author.name
 
-        full_message = f"📨 Сообщение от **{sender_name}**:\n{message_content}"
-
-        await user.send(full_message)
+        await user.send(message_content)
         await ctx.send(f"✅ Сообщение отправлено пользователю с ID {user_id}.")
 
     except discord.NotFound:

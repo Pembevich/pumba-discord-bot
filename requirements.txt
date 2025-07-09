@@ -6,3 +6,4 @@ aiohttp
 moviepy==1.0.3
 imageio-ffmpeg>=0.4.5
 pytube
+yt-dlp

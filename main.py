@@ -100,6 +100,13 @@ async def dm(ctx, user_id: int, *, message: str):
         await ctx.send("❌ Пользователь с таким ID не найден.")
     except Exception as e:
         await ctx.send(f"⚠️ Ошибка: {e}")
+@bot.command()
+async def message(ctx, user: discord.Member, *, text):
+    try:
+        await user.send(f"Сообщение от {ctx.author.name}: {text}")
+        await ctx.send("Сообщение отправлено.")
+    except discord.Forbidden:
+        await ctx.send("Не удалось отправить сообщение. Возможно, пользователь отключил ЛС.")
 
 import aiohttp
 import io

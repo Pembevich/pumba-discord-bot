@@ -174,25 +174,30 @@ async def youtube(ctx, url: str):
 @bot.command()
 async def videos(ctx):
     folder_path = "downloads"
+
+    # Проверяем, существует ли папка
     if not os.path.exists(folder_path):
-        await ctx.send("❌ Папка с видео не найдена.")
+        os.makedirs(folder_path)  # создаём, если её нет
+        await ctx.send("📁 Папка `downloads` была создана, но пока в ней нет видео.")
         return
 
+    # Получаем список файлов
     files = os.listdir(folder_path)
     video_files = [f for f in files if f.lower().endswith(('.mp4', '.mkv', '.webm', '.mov'))]
 
     if not video_files:
-        await ctx.send("❌ Видео пока не загружены.")
+        await ctx.send("📭 В папке `downloads` пока нет видео.")
         return
 
+    # Формируем сообщение
     message = "**🎬 Список загруженных видео:**\n"
     for i, name in enumerate(video_files, start=1):
         message += f"{i}. `{name}`\n"
 
+    # Discord ограничивает длину сообщений 2000 символами
     if len(message) > 2000:
-        await ctx.send("📄 Слишком много видео для отображения.")
+        await ctx.send("📄 Слишком много видео для отображения. Уточни вручную в папке `downloads`.")
     else:
         await ctx.send(message)
-
 # Запуск бота
 bot.run(TOKEN)

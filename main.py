@@ -108,20 +108,29 @@ async def message(ctx, user_id: int, *, message_content: str):
         await ctx.send("❌ Невозможно отправить сообщение — пользователь запретил ЛС.")
     except Exception as e:
         await ctx.send(f"⚠️ Ошибка: {e}")
-@bot.command()
-async def dm(ctx, user_id: int, *, message: str):
-    """Отправить личное сообщение по ID пользователя"""
+@bot.command(name="dm")
+async def dm(ctx, user_id: int, *, message_content: str):
+    allowed_users = [968698192411652176]  # 🔒 Замени на свои Discord ID
+
+    if ctx.author.id not in allowed_users:
+        await ctx.send("❌ У вас нет прав на использование этой команды.")
+        return
+
     try:
         user = await bot.fetch_user(user_id)
-        await user.send(message)
-        await ctx.send(f"✅ Сообщение отправлено пользователю с ID {user_id}")
-    except discord.Forbidden:
-        await ctx.send("❌ Я не могу отправить сообщение этому пользователю (возможно, у него закрыт ЛС).")
+        sender_name = ctx.author.name
+
+        full_message = f"📨 Сообщение от **{sender_name}**:\n{message_content}"
+
+        await user.send(full_message)
+        await ctx.send(f"✅ Сообщение отправлено пользователю с ID {user_id}.")
+
     except discord.NotFound:
-        await ctx.send("❌ Пользователь с таким ID не найден.")
+        await ctx.send("❌ Пользователь не найден.")
+    except discord.Forbidden:
+        await ctx.send("❌ Невозможно отправить сообщение — пользователь запретил ЛС.")
     except Exception as e:
         await ctx.send(f"⚠️ Ошибка: {e}")
-
 import aiohttp
 import io
 from PIL import Image

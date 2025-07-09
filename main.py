@@ -206,30 +206,36 @@ import os
 from discord.ext import commands
 from pytube import YouTube
 
+import discord
+from discord.ext import commands
+import yt_dlp
+import os
+
 @bot.command()
 async def youtube(ctx, url: str):
-    await ctx.send("⏬ Загружаю видео...")
+    await ctx.send("📥 Загружаю видео...")
+
+    # Очищаем ссылку от параметров
+    if "&" in url:
+        url = url.split("&")[0]
+    if "?" in url:
+        url = url.split("?")[0]
+
+    # Настройки загрузки
+    ydl_opts = {
+        'outtmpl': 'downloads/%(title)s.%(ext)s',
+        'format': 'mp4[height<=360]',
+        'quiet': True
+    }
 
     try:
-        yt = YouTube(url)
-        stream = yt.streams.filter(progressive=True, file_extension="mp4").order_by('resolution').desc().first()
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
 
-        if not os.path.exists("downloads"):
-            os.makedirs("downloads")
-
-        filename = stream.default_filename
-        filepath = os.path.join("downloads", filename)
-        stream.download(output_path="downloads")
-
-        file_size = os.path.getsize(filepath)
-
-        if file_size < 8 * 1024 * 1024:
-            await ctx.send(file=discord.File(filepath))
-        else:
-            await ctx.send(f"✅ Видео скачано и сохранено: `{filepath}`\n(⚠️ слишком большое для отправки в Discord)")
-
+        await ctx.send(f"✅ Видео загружено и сохранено как:\n`{filename}`")
     except Exception as e:
-        await ctx.send(f"❌ Ошибка при загрузке: {str(e)}")
+        await ctx.send(f"❌ Ошибка при загрузке: {e}")
 import os
 from discord.ext import commands
 

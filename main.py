@@ -75,54 +75,10 @@ class EntryModal(Modal, title="Добавить запись"):
         c.execute("INSERT INTO entries (title, description) VALUES (?, ?)", (self.title.value, self.description.value))
         conn.commit()
         await interaction.response.send_message("✅ Запись добавлена!", ephemeral=True)
-class AddRecordModal(discord.ui.Modal, title="Добавить запись"):
-    description = discord.ui.TextInput(
-        label="Описание",
-        style=discord.TextStyle.paragraph,
-        required=True,
-        max_length=4000,
-        placeholder="Введите описание записи"
-    )
 
-    async def on_submit(self, interaction: discord.Interaction):
-        try:
-            # Создаём таблицу, если не существует
-            conn = sqlite3.connect("database.db")
-            cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS data (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    description TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            conn.commit()
-
-            # Вставляем запись
-            cursor.execute("INSERT INTO data (description) VALUES (?)", (self.description.value,))
-            conn.commit()
-            conn.close()
-
-            await interaction.response.send_message("✅ Запись успешно добавлена!", ephemeral=True)
-
-        except Exception as e:
-            print(f"[AddRecordModal ERROR]: {e}")
-            try:
-                await interaction.response.send_message("❌ Ошибка при добавлении записи. Попробуйте позже.", ephemeral=True)
-            except:
-                await interaction.followup.send("❌ Ошибка при добавлении записи. Попробуйте позже.", ephemeral=True)
-
-    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
-        print(f"[AddRecordModal FATAL ERROR]: {error}")
-        try:
-            await interaction.response.send_message("❌ Непредвиденная ошибка. Попробуйте позже.", ephemeral=True)
-        except:
-            await interaction.followup.send("❌ Непредвиденная ошибка. Попробуйте позже.", ephemeral=True)
-
-@bot.command(name="data_base")
-async def data_base(ctx):
-    await ctx.send_modal(AddRecordModal())
-
+@bot.tree.command(name="data_base", description="Открыть интерфейс базы данных")
+async def data_base(interaction: Interaction):
+    await interaction.response.send_modal(PasswordModal())
 
 # --- Приватные чаты ---
 class ChatPasswordModal(Modal, title="Установить пароль для чата"):

@@ -32,6 +32,7 @@ intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
+bot.remove_command('help')
 
 @bot.event
 async def on_ready():

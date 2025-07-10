@@ -267,5 +267,171 @@ async def data_base(ctx):
 
     # Отправка интерфейса
     await ctx.send("```[КОМАНДЫ_КОНСОЛИ]:```", view=view)
+# (весь предыдущий код оставлен без изменений вплоть до конца data_base)
+
+# Таблицы для приватных чатов
+@bot.event
+async def on_ready():
+    print(f"✅ Бот запущен как {bot.user}")
+    async with aiosqlite.connect("data.db") as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                info TEXT
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS private_chats (
+                chat_id TEXT PRIMARY KEY,
+                user1_id INTEGER,
+                user2_id INTEGER,
+                password TEXT
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id TEXT,
+                sender_id INTEGER,
+                message TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.commit()
+
+# Команда !chat для создания чата
+@bot.command()
+async def chat(ctx, target: discord.User):
+    sender = ctx.author
+
+    # Проверка: уже существует чат?
+    async with aiosqlite.connect("data.db") as db:
+        async with db.execute("""
+            SELECT chat_id FROM private_chats
+            WHERE (user1_id = ? AND user2_id = ?)
+               OR (user1_id = ? AND user2_id = ?)
+        """, (sender.id, target.id, target.id, sender.id)) as cursor:
+            existing = await cursor.fetchone()
+
+        if existing:
+            await ctx.send("❗ Чат уже существует.")
+            return
+
+    # Отправка запроса получателю
+    try:
+        view = View()
+        accept_button = Button(label="Принять чат", style=discord.ButtonStyle.green)
+
+        async def accept_callback(interaction):
+            if interaction.user.id != target.id:
+                await interaction.response.send_message("⛔ Не для вас!", ephemeral=True)
+                return
+
+            chat_id = str(uuid.uuid4())
+            async with aiosqlite.connect("data.db") as db:
+                await db.execute("""
+                    INSERT INTO private_chats (chat_id, user1_id, user2_id, password)
+                    VALUES (?, ?, ?, ?)
+                """, (chat_id, sender.id, target.id, None))
+                await db.commit()
+
+            await interaction.response.send_message("✅ Чат создан. Используйте `!chats`, чтобы просматривать чаты.", ephemeral=True)
+
+        accept_button.callback = accept_callback
+        view.add_item(accept_button)
+
+        await target.send(f"🔔 Пользователь **{sender}** хочет начать с вами приватный чат.", view=view)
+        await ctx.send("✅ Запрос на чат отправлен.")
+
+    except discord.Forbidden:
+        await ctx.send("❌ Не удалось отправить запрос: пользователь закрыл личные сообщения.")
+
+# Команда !chats для просмотра чатов
+@bot.command()
+async def chats(ctx):
+    user_id = ctx.author.id
+    async with aiosqlite.connect("data.db") as db:
+        async with db.execute("""
+            SELECT chat_id, user1_id, user2_id FROM private_chats
+            WHERE user1_id = ? OR user2_id = ?
+        """, (user_id, user_id)) as cursor:
+            chats = await cursor.fetchall()
+
+    if not chats:
+        await ctx.send("❌ У вас нет активных чатов.")
+        return
+
+    view = View(timeout=120)
+    for chat in chats:
+        chat_id, user1, user2 = chat
+        partner_id = user2 if user1 == user_id else user1
+        partner = await bot.fetch_user(partner_id)
+        btn = Button(label=f"Чат с {partner.name}", style=discord.ButtonStyle.primary)
+
+        async def make_modal(chat_id_inner):
+            class ChatModal(discord.ui.Modal, title="🔒 Приватный чат"):
+                message = discord.ui.TextInput(label="Сообщение", style=discord.TextStyle.paragraph, required=True)
+
+                async def on_submit(self, interaction: discord.Interaction):
+                    async with aiosqlite.connect("data.db") as db:
+                        await db.execute("""
+                            INSERT INTO chat_messages (chat_id, sender_id, message)
+                            VALUES (?, ?, ?)
+                        """, (chat_id_inner, interaction.user.id, self.message.value))
+                        await db.commit()
+                    await interaction.response.send_message("✅ Сообщение отправлено.", ephemeral=True)
+
+            return ChatModal()
+
+        async def callback(interaction, chat_id_inner=chat_id):
+            # Проверка пароля (если установлен)
+            async with aiosqlite.connect("data.db") as db:
+                async with db.execute("SELECT password FROM private_chats WHERE chat_id = ?", (chat_id_inner,)) as c:
+                    row = await c.fetchone()
+            if row and row[0]:
+                await interaction.response.send_modal(PasswordModal(chat_id_inner))
+            else:
+                await interaction.response.send_modal(await make_modal(chat_id_inner))
+
+        btn.callback = callback
+        view.add_item(btn)
+
+    await ctx.send("📬 Ваши чаты:", view=view)
+
+# Modal для ввода пароля
+class PasswordModal(discord.ui.Modal, title="🔑 Введите пароль"):
+    password = discord.ui.TextInput(label="Пароль", style=discord.TextStyle.short, required=True)
+
+    def __init__(self, chat_id):
+        super().__init__()
+        self.chat_id = chat_id
+
+    async def on_submit(self, interaction: discord.Interaction):
+        async with aiosqlite.connect("data.db") as db:
+            async with db.execute("SELECT password FROM private_chats WHERE chat_id = ?", (self.chat_id,)) as cursor:
+                row = await cursor.fetchone()
+
+        if row and self.password.value == row[0]:
+            await interaction.response.send_modal(await make_chat_modal(self.chat_id))
+        else:
+            await interaction.response.send_message("❌ Неверный пароль.", ephemeral=True)
+
+# Modal для ввода сообщения
+async def make_chat_modal(chat_id):
+    class ChatModal(discord.ui.Modal, title="✉️ Сообщение в чат"):
+        message = discord.ui.TextInput(label="Сообщение", style=discord.TextStyle.paragraph, required=True)
+
+        async def on_submit(self, interaction: discord.Interaction):
+            async with aiosqlite.connect("data.db") as db:
+                await db.execute("""
+                    INSERT INTO chat_messages (chat_id, sender_id, message)
+                    VALUES (?, ?, ?)
+                """, (chat_id, interaction.user.id, self.message.value))
+                await db.commit()
+            await interaction.response.send_message("✅ Сообщение отправлено.", ephemeral=True)
+
+    return ChatModal()
+
 # Запуск бота
 bot.run(TOKEN)

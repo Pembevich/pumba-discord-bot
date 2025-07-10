@@ -258,8 +258,8 @@ async def data_base(ctx):
             await ctx.send("```\n[...]\n\n[ОТКЛЮЧЕНИЕ(ВРЕМЯ ОЖИДАНИЯ ИСТЕКЛО)]\n———————————-\n[INCONNECTING(TIME IS UP)]\n```")
 
     # Добавляем кнопки
-    view.add_item(Button(label="```\n> [ПРОСМОТР_ДАННЫХ]\n```", style=discord.ButtonStyle.grey, custom_id="view"))
-    view.add_item(Button(label="```\n> [ВНЕСТИ_ДАННЫЕ]\n```", style=discord.ButtonStyle.grey, custom_id="add"))
+    view.add_item(Button(label="[ПРОСМОТР_ДАННЫХ]", style=discord.ButtonStyle.grey, custom_id="view"))
+    view.add_item(Button(label="[ВНЕСТИ_ДАННЫЕ]", style=discord.ButtonStyle.grey, custom_id="add"))
 
     # Назначаем обработчики
     view.children[0].callback = view_data_callback

@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import sqlite3
 import os
-from discord.ui import Modal, TextInput
+from discord.ui import Modal, TextInput, Button, View
 from discord import TextStyle, Interaction
 
 intents = discord.Intents.all()
@@ -42,21 +42,16 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 
 conn.commit()
 
-
 # --- Модальные окна для базы данных ---
-from discord.ui import Button, View
-
 class PasswordModal(Modal, title="Введите пароль"):
     password = TextInput(label="Пароль", style=TextStyle.short)
 
     async def on_submit(self, interaction: discord.Interaction):
         if self.password.value == "1234":
-            # Отправляем сообщение с кнопкой "Добавить запись"
             view = EntryModalButtonView()
             await interaction.response.send_message("Пароль верен. Нажмите кнопку ниже, чтобы добавить запись:", view=view, ephemeral=True)
         else:
             await interaction.response.send_message("❌ Неверный пароль. Попробуйте снова.", ephemeral=True)
-
 
 class EntryModalButtonView(View):
     def __init__(self):
@@ -65,7 +60,6 @@ class EntryModalButtonView(View):
     @discord.ui.button(label="Добавить запись", style=discord.ButtonStyle.primary)
     async def open_entry_modal(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(EntryModal())
-
 
 class EntryModal(Modal, title="Добавить запись"):
     title = TextInput(label="Заголовок", style=TextStyle.short)
@@ -99,7 +93,6 @@ class ChatPasswordModal(Modal, title="Установить пароль для �
         except:
             pass
 
-
 @bot.tree.command(name="chat", description="Создать приватный чат с пользователем")
 @app_commands.describe(member="Пользователь, с которым хотите начать чат")
 async def chat(interaction: Interaction, member: discord.Member):
@@ -107,7 +100,6 @@ async def chat(interaction: Interaction, member: discord.Member):
         await interaction.response.send_message("Нельзя создать чат с самим собой.", ephemeral=True)
         return
     await interaction.response.send_modal(ChatPasswordModal(interaction.user, member))
-
 
 @bot.tree.command(name="chats", description="Показать список ваших приватных чатов")
 async def chats(interaction: Interaction):
@@ -130,7 +122,6 @@ async def chats(interaction: Interaction):
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-
 # --- !message: отправка от имени пользователя ---
 @bot.command()
 async def message(ctx, member: discord.Member, *, msg: str = None):
@@ -144,7 +135,6 @@ async def message(ctx, member: discord.Member, *, msg: str = None):
         await ctx.send("Сообщение отправлено.")
     except:
         await ctx.send("Не удалось отправить сообщение пользователю.")
-
 
 # --- !dm: анонимная отправка (только для админов) ---
 @bot.command()
@@ -163,14 +153,12 @@ async def dm(ctx, member: discord.Member, *, msg: str = None):
     except:
         await ctx.send("Не удалось отправить сообщение пользователю.")
 
-
 # --- !add и !info из базы данных ---
 @bot.command()
 async def add(ctx, title, *, description):
     c.execute("INSERT INTO entries (title, description) VALUES (?, ?)", (title, description))
     conn.commit()
     await ctx.send("Информация добавлена.")
-
 
 @bot.command()
 async def info(ctx):
@@ -185,7 +173,6 @@ async def info(ctx):
         embed.add_field(name=title, value=description, inline=False)
 
     await ctx.send(embed=embed)
-
 
 # --- Запуск ---
 @bot.event

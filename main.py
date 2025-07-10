@@ -12,6 +12,7 @@ import uuid
 import imageio.v2 as imageio
 from discord.ui import Button, View
 import sqlite3
+from discord import ui, Interaction, TextStyle, ButtonStyle
 
 conn = sqlite3.connect("data.db")
 cursor = conn.cursor()
@@ -195,31 +196,36 @@ async def gif(ctx):
     gif_bytes.seek(0)
 
     await ctx.send("🎞️ Вот твоя GIF:", file=discord.File(gif_bytes, filename="result.gif"))
-@bot.command()
-async def data_base(ctx):
-    await ctx.send("```\n[ВВЕДИТЕ_ПАРОЛЬ]\n———————————-\n[ENTER_PASSWORD]\n\n>...\n```")
+bot = commands.Bot(command_prefix='!', intents=discord.Intents.all())
 
-    def check(m):
-        return m.author == ctx.author and m.channel == ctx.channel
+# Modal: Ввод пароля
+class PasswordModal(ui.Modal, title="🔐 Авторизация"):
+    password = ui.TextInput(label="Введите пароль", style=TextStyle.short, placeholder="Пароль", required=True)
 
-    try:
-        msg = await bot.wait_for("message", check=check, timeout=30.0)
-        if msg.content != "TEST_PASSWORD":
-            await ctx.send("```\n[...]\n\n[НЕВЕРНЫЙ_ПАРОЛЬ]\n———————————-\n[WRONG_PASSWORD]\n```")
+    def __init__(self, ctx):
+        super().__init__()
+        self.ctx = ctx
+
+    async def on_submit(self, interaction: Interaction):
+        if self.password.value != "TEST_PASSWORD":
+            await interaction.response.send_message("```\n[ОШИБКА]\n———————————\n[НЕВЕРНЫЙ_ПАРОЛЬ]\n```", ephemeral=True)
             return
-    except asyncio.TimeoutError:
-        await ctx.send("```\n[...]\n\n[ОТКЛЮЧЕНИЕ(ВРЕМЯ ОЖИДАНИЯ ИСТЕКЛО)]\n———————————-\n[INCONNECTING(TIME IS UP)]\n```")
-        return
 
-    # Добро пожаловать
-    await ctx.send("```\n[...]\n\n[ДОБРО_ПОЖАЛОВАТЬ_В_БАЗУ_ДАННЫХ]\n———————————\n[WELCOME_TO_DATA_BASE]\n\n———————————\n\n[ОЖИДАНИЕ_КОМАНДЫ _ОТ_КОНСОЛИ]\n———————————\n[WAITING_FOR_COMMAND_OF_CONSOLE]\n\n>...\n```")
+        # Отображение кнопок
+        view = DatabaseMenuView(self.ctx)
+        await interaction.response.send_message("```\n[АВТОРИЗАЦИЯ УСПЕШНА]\n———————————\n[ДОСТУП РАЗРЕШЁН]\n```", view=view, ephemeral=True)
 
-    # Создание кнопок
-    view = View()
 
-    async def view_data_callback(interaction):
-        if interaction.user != ctx.author:
-            await interaction.response.send_message("```\n[...]\n\n[ACCESS_GRUNTED]\n```", ephemeral=True)
+# View: Кнопки после авторизации
+class DatabaseMenuView(ui.View):
+    def __init__(self, ctx):
+        super().__init__(timeout=None)
+        self.ctx = ctx
+
+    @ui.button(label="[ПРОСМОТР_ДАННЫХ]", style=ButtonStyle.secondary, custom_id="view_data")
+    async def view_data(self, interaction: Interaction, button: ui.Button):
+        if interaction.user != self.ctx.author:
+            await interaction.response.send_message("```\n[ОШИБКА]\n———————————\n[НЕТ_ДОСТУПА]\n```", ephemeral=True)
             return
 
         conn = sqlite3.connect("data.db")
@@ -229,44 +235,45 @@ async def data_base(ctx):
         conn.close()
 
         if rows:
-            content = "\n\n".join([f">... \n{title} — {info}" for title, info in rows])
+            content = "\n\n".join([f"{title} — {info}" for title, info in rows])
         else:
-            content = "```\n[...]\n\n[ЗАПИСИ_ОТСУТСТВУЮТ]\n———————————\n[THERE_ARE_NO_RECORDS]\n\n>...\n```"
+            content = "[ЗАПИСЕЙ_НЕТ]"
 
-        await interaction.response.send_message(f"```\n{content}\n\n[…]```", ephemeral=True)
+        await interaction.response.send_message(f"```\n{content}\n```", ephemeral=True)
 
-    async def add_data_callback(interaction):
-        if interaction.user != ctx.author:
-            await interaction.response.send_message("```\n[...]\n\n[ACCESS_GRUNTED]\n```", ephemeral=True)
+    @ui.button(label="[ВНЕСТИ_ДАННЫЕ]", style=ButtonStyle.secondary, custom_id="add_data")
+    async def add_data(self, interaction: Interaction, button: ui.Button):
+        if interaction.user != self.ctx.author:
+            await interaction.response.send_message("```\n[ОШИБКА]\n———————————\n[НЕТ_ДОСТУПА]\n```", ephemeral=True)
             return
 
-        await interaction.response.send_message("```\n[...]\n\n[НОВАЯ_ЗАПИСЬ]\n———————————\n[NEW_ENTRY]\n\n[ВВЕДИТЕ_НАЗВАНИЕ/ЗАГОЛОВОК]\n—————————\n[ENTER_TITLE/HEADLINE]\n\n>...\n```", ephemeral=True)
-        try:
-            title_msg = await bot.wait_for("message", check=check, timeout=30.0)
-            await ctx.send("```\n[...]\n\n[ВВЕДИТЕ_ОПИСАНИЕ/СОДЕРЖАНИЕ]\n———————————\n[ENTER_DISCRIPTION/CONTENT]\n\n>...\n```")
-            info_msg = await bot.wait_for("message", check=check, timeout=30.0)
+        await interaction.response.send_modal(AddDataModal(self.ctx))
 
-            conn = sqlite3.connect("data.db")
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO data (title, info) VALUES (?, ?)", (title_msg.content, info_msg.content))
-            conn.commit()
-            conn.close()
 
-            await ctx.send("```[…]\n\n[ДАННЫЕ_ЗАПИСАНЫ]\n—————————\n[DATA_IS_RECORDED]\n```")
+# Modal: Ввод новой записи
+class AddDataModal(ui.Modal, title="📝 Новая запись"):
+    title_input = ui.TextInput(label="Заголовок", style=TextStyle.short, required=True)
+    info_input = ui.TextInput(label="Описание", style=TextStyle.paragraph, required=True)
 
-        except asyncio.TimeoutError:
-            await ctx.send("```\n[...]\n\n[ОТКЛЮЧЕНИЕ(ВРЕМЯ ОЖИДАНИЯ ИСТЕКЛО)]\n———————————-\n[INCONNECTING(TIME IS UP)]\n```")
+    def __init__(self, ctx):
+        super().__init__()
+        self.ctx = ctx
 
-    # Добавляем кнопки
-    view.add_item(Button(label="[ПРОСМОТР_ДАННЫХ]", style=discord.ButtonStyle.grey, custom_id="view"))
-    view.add_item(Button(label="[ВНЕСТИ_ДАННЫЕ]", style=discord.ButtonStyle.grey, custom_id="add"))
+    async def on_submit(self, interaction: Interaction):
+        conn = sqlite3.connect("data.db")
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO data (title, info) VALUES (?, ?)", (self.title_input.value, self.info_input.value))
+        conn.commit()
+        conn.close()
 
-    # Назначаем обработчики
-    view.children[0].callback = view_data_callback
-    view.children[1].callback = add_data_callback
+        await interaction.response.send_message("```\n[✅ ЗАПИСЬ_СОХРАНЕНА]\n```", ephemeral=True)
 
-    # Отправка интерфейса
-    await ctx.send("```[КОМАНДЫ_КОНСОЛИ]:```", view=view)
+
+# Команда: !data_base
+@bot.command()
+async def data_base(ctx):
+    await ctx.send("```\n[🔐 ВВОД_ПАРОЛЯ]\n———————————\n[ENTER_PASSWORD]\n```")
+    await ctx.send_modal(PasswordModal(ctx))
 # (весь предыдущий код оставлен без изменений вплоть до конца data_base)
 
 # Таблицы для приватных чатов

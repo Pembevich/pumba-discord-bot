@@ -5,7 +5,7 @@ import sqlite3
 import os
 from discord.ui import Modal, TextInput, View, Button
 from discord import TextStyle
-
+from discord import app_commands, Interaction
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -51,13 +51,12 @@ ALLOWED_DM_USERS = [123456789012345678]  # Укажи здесь свой Discor
 class PasswordModal(Modal, title="Введите пароль"):
     password = TextInput(label="Пароль", style=TextStyle.short)
 
-    def __init__(self, ctx):
+    def __init__(self):
         super().__init__()
-        self.ctx = ctx
 
     async def on_submit(self, interaction: discord.Interaction):
-        if self.password.value == "1234":  # простой пароль
-            await interaction.response.send_modal(EntryModal(self.ctx))
+        if self.password.value == "1234":
+            await interaction.response.send_modal(EntryModal())
         else:
             await interaction.response.send_message("Неверный пароль.", ephemeral=True)
 
@@ -66,21 +65,17 @@ class EntryModal(Modal, title="Добавить запись"):
     title = TextInput(label="Заголовок", style=TextStyle.short)
     description = TextInput(label="Описание", style=TextStyle.paragraph)
 
-    def __init__(self, ctx):
+    def __init__(self):
         super().__init__()
-        self.ctx = ctx
 
     async def on_submit(self, interaction: discord.Interaction):
         c.execute("INSERT INTO entries (title, description) VALUES (?, ?)", (self.title.value, self.description.value))
         conn.commit()
         await interaction.response.send_message("Запись добавлена.", ephemeral=True)
 
-
-@bot.command()
-async def data_base(ctx):
-    await ctx.send("Открытие интерфейса...", delete_after=1)
-    await ctx.author.send_modal(PasswordModal(ctx))
-
+@bot.tree.command(name="data_base", description="Открыть интерфейс базы данных")
+async def data_base(interaction: Interaction):
+    await interaction.response.send_modal(PasswordModal(interaction))
 
 # --- Приватные чаты ---
 class ChatPasswordModal(Modal, title="Установить пароль для чата"):
@@ -188,7 +183,7 @@ async def info(ctx):
 # --- Запуск ---
 @bot.event
 async def on_ready():
+    await bot.tree.sync()
     print(f"Бот запущен как {bot.user}")
-
 
 bot.run(os.getenv("DISCORD_TOKEN"))

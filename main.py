@@ -44,31 +44,37 @@ conn.commit()
 
 
 # --- Модальные окна для базы данных ---
+from discord.ui import Button, View
+
 class PasswordModal(Modal, title="Введите пароль"):
     password = TextInput(label="Пароль", style=TextStyle.short)
 
-    def __init__(self):
-        super().__init__()
-
     async def on_submit(self, interaction: discord.Interaction):
         if self.password.value == "1234":
-            await interaction.response.send_modal(EntryModal())
+            # Отправляем сообщение с кнопкой "Добавить запись"
+            view = EntryModalButtonView()
+            await interaction.response.send_message("Пароль верен. Нажмите кнопку ниже, чтобы добавить запись:", view=view, ephemeral=True)
         else:
-            await interaction.response.send_message("Неверный пароль.", ephemeral=True)
+            await interaction.response.send_message("❌ Неверный пароль. Попробуйте снова.", ephemeral=True)
+
+
+class EntryModalButtonView(View):
+    def __init__(self):
+        super().__init__(timeout=180)
+
+    @discord.ui.button(label="Добавить запись", style=discord.ButtonStyle.primary)
+    async def open_entry_modal(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(EntryModal())
 
 
 class EntryModal(Modal, title="Добавить запись"):
     title = TextInput(label="Заголовок", style=TextStyle.short)
     description = TextInput(label="Описание", style=TextStyle.paragraph)
 
-    def __init__(self):
-        super().__init__()
-
     async def on_submit(self, interaction: discord.Interaction):
         c.execute("INSERT INTO entries (title, description) VALUES (?, ?)", (self.title.value, self.description.value))
         conn.commit()
-        await interaction.response.send_message("Запись добавлена.", ephemeral=True)
-
+        await interaction.response.send_message("✅ Запись добавлена!", ephemeral=True)
 
 @bot.tree.command(name="data_base", description="Открыть интерфейс базы данных")
 async def data_base(interaction: Interaction):

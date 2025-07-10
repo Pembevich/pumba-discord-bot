@@ -197,7 +197,7 @@ async def gif(ctx):
     await ctx.send("🎞️ Вот твоя GIF:", file=discord.File(gif_bytes, filename="result.gif"))
 @bot.command()
 async def data_base(ctx):
-    await ctx.send("```\n>...\n[ВВЕДИТЕ_ПАРОЛЬ]\n———————————-\n[ENTER_PASSWORD]\n\n>...\n```")
+    await ctx.send("```\n[ВВЕДИТЕ_ПАРОЛЬ]\n———————————-\n[ENTER_PASSWORD]\n\n>...\n```")
 
     def check(m):
         return m.author == ctx.author and m.channel == ctx.channel

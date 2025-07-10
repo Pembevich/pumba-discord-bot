@@ -3,9 +3,9 @@ from discord.ext import commands
 from discord import app_commands
 import sqlite3
 import os
-from discord.ui import Modal, TextInput, View, Button
-from discord import TextStyle
-from discord import app_commands, Interaction
+from discord.ui import Modal, TextInput
+from discord import TextStyle, Interaction
+
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -43,10 +43,6 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 conn.commit()
 
 
-# --- Привилегированные пользователи для !dm ---
-ALLOWED_DM_USERS = [123456789012345678]  # Укажи здесь свой Discord ID или список ID
-
-
 # --- Модальные окна для базы данных ---
 class PasswordModal(Modal, title="Введите пароль"):
     password = TextInput(label="Пароль", style=TextStyle.short)
@@ -73,9 +69,11 @@ class EntryModal(Modal, title="Добавить запись"):
         conn.commit()
         await interaction.response.send_message("Запись добавлена.", ephemeral=True)
 
+
 @bot.tree.command(name="data_base", description="Открыть интерфейс базы данных")
 async def data_base(interaction: Interaction):
-    await interaction.response.send_modal(PasswordModal(interaction))
+    await interaction.response.send_modal(PasswordModal())
+
 
 # --- Приватные чаты ---
 class ChatPasswordModal(Modal, title="Установить пароль для чата"):
@@ -97,31 +95,35 @@ class ChatPasswordModal(Modal, title="Установить пароль для �
             pass
 
 
-@bot.command(name='chat')
-async def start_private_chat(ctx, member_identifier: str):
-    if member == ctx.author:
-        await ctx.send("Вы не можете начать чат с самим собой.")
+@bot.tree.command(name="chat", description="Создать приватный чат с пользователем")
+@app_commands.describe(member="Пользователь, с которым хотите начать чат")
+async def chat(interaction: Interaction, member: discord.Member):
+    if member == interaction.user:
+        await interaction.response.send_message("Нельзя создать чат с самим собой.", ephemeral=True)
         return
-    await ctx.send("Открываю настройки чата...", delete_after=1)
-    await ctx.author.send_modal(ChatPasswordModal(ctx.author, member))
+    await interaction.response.send_modal(ChatPasswordModal(interaction.user, member))
 
 
-@bot.command()
-async def chats(ctx):
-    user_id = ctx.author.id
+@bot.tree.command(name="chats", description="Показать список ваших приватных чатов")
+async def chats(interaction: Interaction):
+    user_id = interaction.user.id
     c.execute("SELECT * FROM private_chats WHERE user1_id = ? OR user2_id = ?", (user_id, user_id))
     chats = c.fetchall()
+
     if not chats:
-        await ctx.send("У вас нет активных приватных чатов.")
+        await interaction.response.send_message("У вас нет активных приватных чатов.", ephemeral=True)
         return
 
     embed = discord.Embed(title="Ваши чаты", color=discord.Color.green())
     for chat in chats:
         uid = chat[1] if chat[1] != user_id else chat[2]
-        user = await bot.fetch_user(uid)
-        embed.add_field(name=f"С {user.display_name}", value=f"ID чата: {chat[0]}", inline=False)
+        try:
+            user = await bot.fetch_user(uid)
+            embed.add_field(name=f"С {user.display_name}", value=f"ID чата: {chat[0]}", inline=False)
+        except:
+            continue
 
-    await ctx.send(embed=embed)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 # --- !message: отправка от имени пользователя ---
@@ -142,7 +144,7 @@ async def message(ctx, member: discord.Member, *, msg: str = None):
 # --- !dm: анонимная отправка (только для админов) ---
 @bot.command()
 async def dm(ctx, member: discord.Member, *, msg: str = None):
-    if ctx.author.id not in 968698192411652176:
+    if ctx.author.id != 968698192411652176:
         await ctx.send("У вас нет доступа к этой команде.")
         return
 
@@ -157,7 +159,7 @@ async def dm(ctx, member: discord.Member, *, msg: str = None):
         await ctx.send("Не удалось отправить сообщение пользователю.")
 
 
-# --- Команда !add и !info из базы данных ---
+# --- !add и !info из базы данных ---
 @bot.command()
 async def add(ctx, title, *, description):
     c.execute("INSERT INTO entries (title, description) VALUES (?, ?)", (title, description))

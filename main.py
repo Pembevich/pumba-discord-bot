@@ -2,112 +2,193 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import sqlite3
+import os
+from discord.ui import Modal, TextInput, View, Button
+from discord import TextStyle
 
-intents = discord.Intents.default()
-intents.messages = True
-intents.message_content = True
-intents.guilds = True
-
+intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
-tree = bot.tree
 
-# Создание/подключение к БД
+# --- База данных ---
 conn = sqlite3.connect("bot_data.db")
-cursor = conn.cursor()
+c = conn.cursor()
 
-cursor.execute('''CREATE TABLE IF NOT EXISTS data (
+c.execute('''
+CREATE TABLE IF NOT EXISTS entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    description TEXT NOT NULL
-)''')
+    title TEXT,
+    description TEXT
+)
+''')
+
+c.execute('''
+CREATE TABLE IF NOT EXISTS private_chats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user1_id INTEGER,
+    user2_id INTEGER,
+    password TEXT
+)
+''')
+
+c.execute('''
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id INTEGER,
+    sender_id INTEGER,
+    message TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+''')
+
 conn.commit()
 
-# ========== MODAL С ПАРОЛЕМ ==========
 
-ADMIN_PASSWORD = "1234"  # можно вынести в ENV
+# --- Привилегированные пользователи для !dm ---
+ALLOWED_DM_USERS = [123456789012345678]  # Укажи здесь свой Discord ID или список ID
 
-class PasswordModal(discord.ui.Modal, title="Авторизация"):
-    password = discord.ui.TextInput(label="Введите пароль", style=discord.TextStyle.short, min_length=1)
 
-    def __init__(self, interaction: discord.Interaction):
+# --- Модальные окна для базы данных ---
+class PasswordModal(Modal, title="Введите пароль"):
+    password = TextInput(label="Пароль", style=TextStyle.short)
+
+    def __init__(self, ctx):
         super().__init__()
-        self.interaction = interaction
+        self.ctx = ctx
 
     async def on_submit(self, interaction: discord.Interaction):
-        if self.password.value == ADMIN_PASSWORD:
-            await interaction.response.send_message("Доступ разрешён.", ephemeral=True, view=DatabaseView())
+        if self.password.value == "1234":  # простой пароль
+            await interaction.response.send_modal(EntryModal(self.ctx))
         else:
             await interaction.response.send_message("Неверный пароль.", ephemeral=True)
 
-# ========== VIEW С КНОПКАМИ ==========
 
-class DatabaseView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
+class EntryModal(Modal, title="Добавить запись"):
+    title = TextInput(label="Заголовок", style=TextStyle.short)
+    description = TextInput(label="Описание", style=TextStyle.paragraph)
 
-    @discord.ui.button(label="Добавить запись", style=discord.ButtonStyle.green)
-    async def add_data(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(AddDataModal())
-
-    @discord.ui.button(label="Показать все", style=discord.ButtonStyle.blurple)
-    async def show_data(self, interaction: discord.Interaction, button: discord.ui.Button):
-        cursor.execute("SELECT title, description FROM data")
-        rows = cursor.fetchall()
-        if not rows:
-            await interaction.response.send_message("База данных пуста.", ephemeral=True)
-        else:
-            msg = "\n\n".join([f"**{title}**\n{desc}" for title, desc in rows])
-            await interaction.response.send_message(msg[:2000], ephemeral=True)
-
-# ========== MODAL ДОБАВЛЕНИЯ ДАННЫХ ==========
-
-class AddDataModal(discord.ui.Modal, title="Новая запись"):
-    title = discord.ui.TextInput(label="Заголовок", max_length=100)
-    description = discord.ui.TextInput(label="Описание", style=discord.TextStyle.paragraph, max_length=1000)
+    def __init__(self, ctx):
+        super().__init__()
+        self.ctx = ctx
 
     async def on_submit(self, interaction: discord.Interaction):
-        cursor.execute("INSERT INTO data (title, description) VALUES (?, ?)", (self.title.value, self.description.value))
+        c.execute("INSERT INTO entries (title, description) VALUES (?, ?)", (self.title.value, self.description.value))
         conn.commit()
-        await interaction.response.send_message("Запись добавлена!", ephemeral=True)
+        await interaction.response.send_message("Запись добавлена.", ephemeral=True)
 
-# ========== КОМАНДА ДЛЯ ДОСТУПА К ИНТЕРФЕЙСУ ==========
-
-@tree.command(name="data_base", description="Открыть базу данных")
-async def open_data_base(interaction: discord.Interaction):
-    await interaction.response.send_modal(PasswordModal(interaction))
-
-# ========== СТАРЫЕ КОМАНДЫ ==========
 
 @bot.command()
-async def add(ctx, *, content):
-    with open("data.txt", "a") as file:
-        file.write(content + "\n")
+async def data_base(ctx):
+    await ctx.send("Открытие интерфейса...", delete_after=1)
+    await ctx.author.send_modal(PasswordModal(ctx))
+
+
+# --- Приватные чаты ---
+class ChatPasswordModal(Modal, title="Установить пароль для чата"):
+    password = TextInput(label="Пароль", required=False)
+
+    def __init__(self, requester, partner):
+        super().__init__()
+        self.requester = requester
+        self.partner = partner
+
+    async def on_submit(self, interaction: discord.Interaction):
+        c.execute("INSERT INTO private_chats (user1_id, user2_id, password) VALUES (?, ?, ?)",
+                  (self.requester.id, self.partner.id, self.password.value))
+        conn.commit()
+        await interaction.response.send_message(f"Приватный чат с {self.partner.display_name} создан.", ephemeral=True)
+        try:
+            await self.partner.send(f"{self.requester.display_name} хочет начать с вами приватный чат.")
+        except:
+            pass
+
+
+@bot.command()
+async def chat(ctx, member: discord.Member):
+    if member == ctx.author:
+        await ctx.send("Вы не можете начать чат с самим собой.")
+        return
+    await ctx.send("Открываю настройки чата...", delete_after=1)
+    await ctx.author.send_modal(ChatPasswordModal(ctx.author, member))
+
+
+@bot.command()
+async def chats(ctx):
+    user_id = ctx.author.id
+    c.execute("SELECT * FROM private_chats WHERE user1_id = ? OR user2_id = ?", (user_id, user_id))
+    chats = c.fetchall()
+    if not chats:
+        await ctx.send("У вас нет активных приватных чатов.")
+        return
+
+    embed = discord.Embed(title="Ваши чаты", color=discord.Color.green())
+    for chat in chats:
+        uid = chat[1] if chat[1] != user_id else chat[2]
+        user = await bot.fetch_user(uid)
+        embed.add_field(name=f"С {user.display_name}", value=f"ID чата: {chat[0]}", inline=False)
+
+    await ctx.send(embed=embed)
+
+
+# --- !message: отправка от имени пользователя ---
+@bot.command()
+async def message(ctx, member: discord.Member, *, msg: str = None):
+    files = [await attachment.to_file() for attachment in ctx.message.attachments]
+    if msg is None and not files:
+        await ctx.send("Нужно ввести сообщение или приложить файл.")
+        return
+    try:
+        content = f"Сообщение от **{ctx.author.display_name}**:\n{msg or ''}"
+        await member.send(content, files=files)
+        await ctx.send("Сообщение отправлено.")
+    except:
+        await ctx.send("Не удалось отправить сообщение пользователю.")
+
+
+# --- !dm: анонимная отправка (только для админов) ---
+@bot.command()
+async def dm(ctx, member: discord.Member, *, msg: str = None):
+    if ctx.author.id not in ALLOWED_DM_USERS:
+        await ctx.send("У вас нет доступа к этой команде.")
+        return
+
+    files = [await attachment.to_file() for attachment in ctx.message.attachments]
+    if msg is None and not files:
+        await ctx.send("Нужно ввести сообщение или приложить файл.")
+        return
+    try:
+        await member.send(msg or "", files=files)
+        await ctx.send("Анонимное сообщение отправлено.")
+    except:
+        await ctx.send("Не удалось отправить сообщение пользователю.")
+
+
+# --- Команда !add и !info из базы данных ---
+@bot.command()
+async def add(ctx, title, *, description):
+    c.execute("INSERT INTO entries (title, description) VALUES (?, ?)", (title, description))
+    conn.commit()
     await ctx.send("Информация добавлена.")
+
 
 @bot.command()
 async def info(ctx):
-    try:
-        with open("data.txt", "r") as file:
-            content = file.read()
-        await ctx.send(content if content else "Нет данных.")
-    except FileNotFoundError:
-        await ctx.send("Файл не найден.")
+    c.execute("SELECT title, description FROM entries")
+    entries = c.fetchall()
+    if not entries:
+        await ctx.send("База данных пуста.")
+        return
 
-@bot.command()
-async def message(ctx, user: discord.User, *, msg):
-    await user.send(msg)
-    await ctx.send("Сообщение отправлено.")
+    embed = discord.Embed(title="Информация из базы данных", color=discord.Color.blue())
+    for title, description in entries:
+        embed.add_field(name=title, value=description, inline=False)
 
-@bot.command()
-async def dm(ctx, user: discord.User):
-    await user.send("Привет! Это личное сообщение.")
-    await ctx.send("Личное сообщение отправлено.")
+    await ctx.send(embed=embed)
 
-# ========== ОН РЕДИ ==========
 
+# --- Запуск ---
 @bot.event
 async def on_ready():
-    await tree.sync()
     print(f"Бот запущен как {bot.user}")
 
-bot.run(TOKEN)
+
+bot.run(os.getenv("DISCORD_TOKEN"))

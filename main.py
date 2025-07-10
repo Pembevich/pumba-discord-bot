@@ -229,7 +229,7 @@ async def data_base(ctx):
         conn.close()
 
         if rows:
-            content = "\n\n".join([f">... {title} — {info}" for title, info in rows])
+            content = "\n\n".join([f">... \n{title} — {info}" for title, info in rows])
         else:
             content = "```\n[...]\n\n[ЗАПИСИ_ОТСУТСТВУЮТ]\n———————————\n[THERE_ARE_NO_RECORDS]\n\n>...\n```"
 
@@ -252,7 +252,7 @@ async def data_base(ctx):
             conn.commit()
             conn.close()
 
-            await ctx.send("```[…]\n>```")
+            await ctx.send("```[…]\n\n[ДАННЫЕ_ЗАПИСАНЫ]\n—————————\n[DATA_IS_RECORDED]\n```")
 
         except asyncio.TimeoutError:
             await ctx.send("```\n[...]\n\n[ОТКЛЮЧЕНИЕ(ВРЕМЯ ОЖИДАНИЯ ИСТЕКЛО)]\n———————————-\n[INCONNECTING(TIME IS UP)]\n```")

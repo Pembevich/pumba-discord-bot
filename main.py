@@ -1,10 +1,10 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 import sqlite3
 import os
-from discord.ui import Modal, TextInput, View, Button
-from discord import TextStyle, Interaction
+import io
+from PIL import Image
+import moviepy.editor as mp
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -43,125 +43,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 
 conn.commit()
 
-# --- /data_base (Modal интерфейс с паролем) ---
-class PasswordModal(Modal, title="Введите пароль"):
-    password = TextInput(label="Пароль", style=TextStyle.short)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        if self.password.value == "1234":
-            view = EntryModalButtonView()
-            await interaction.response.send_message("Пароль верен. Нажмите кнопку ниже, чтобы добавить запись:", view=view, ephemeral=True)
-        else:
-            await interaction.response.send_message("❌ Неверный пароль.", ephemeral=True)
-
-class EntryModalButtonView(View):
-    def __init__(self):
-        super().__init__(timeout=180)
-
-    @discord.ui.button(label="Добавить запись", style=discord.ButtonStyle.primary)
-    async def open_entry_modal(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(EntryModal())
-
-class EntryModal(Modal, title="Добавить запись"):
-    title = TextInput(label="Заголовок", style=TextStyle.short)
-    description = TextInput(label="Описание", style=TextStyle.paragraph)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        c.execute("INSERT INTO entries (title, description) VALUES (?, ?)", (self.title.value, self.description.value))
-        conn.commit()
-        await interaction.response.send_message("✅ Запись добавлена!", ephemeral=True)
-
-@bot.tree.command(name="data_base", description="Открыть интерфейс базы данных")
-async def data_base(interaction: Interaction):
-    await interaction.response.send_modal(PasswordModal())
-
-# --- Приватные чаты (Modal интерфейс) ---
-class ChatRequestModal(Modal, title="Создать приватный чат"):
-    password = TextInput(label="Установите пароль (необязательно)", required=False)
-
-    def __init__(self, requester, partner):
-        super().__init__()
-        self.requester = requester
-        self.partner = partner
-
-    async def on_submit(self, interaction: discord.Interaction):
-        # Проверка на уже существующий чат
-        c.execute('''SELECT id FROM private_chats 
-                     WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)''',
-                  (self.requester.id, self.partner.id, self.partner.id, self.requester.id))
-        if c.fetchone():
-            await interaction.response.send_message("Чат с этим пользователем уже существует.", ephemeral=True)
-            return
-
-        c.execute("INSERT INTO private_chats (user1_id, user2_id, password) VALUES (?, ?, ?)",
-                  (self.requester.id, self.partner.id, self.password.value))
-        conn.commit()
-        await interaction.response.send_message("✅ Приватный чат создан!", ephemeral=True)
-        try:
-            await self.partner.send(f"{self.requester.display_name} хочет с вами начать приватный чат. Используйте команду `/chats` для просмотра.")
-        except:
-            pass
-
-@bot.tree.command(name="chat", description="Создать приватный чат с пользователем")
-@app_commands.describe(member="Пользователь")
-async def chat(interaction: Interaction, member: discord.Member):
-    if member.id == interaction.user.id:
-        await interaction.response.send_message("❌ Нельзя создать чат с самим собой.", ephemeral=True)
-        return
-
-    modal = ChatRequestModal(interaction.user, member)
-    await interaction.response.send_modal(modal)
-
-@bot.tree.command(name="chats", description="Посмотреть ваши чаты")
-async def chats(interaction: Interaction):
-    user_id = interaction.user.id
-    c.execute("SELECT * FROM private_chats WHERE user1_id = ? OR user2_id = ?", (user_id, user_id))
-    chats = c.fetchall()
-
-    if not chats:
-        await interaction.response.send_message("У вас нет активных чатов.", ephemeral=True)
-        return
-
-    embed = discord.Embed(title="Ваши приватные чаты", color=discord.Color.green())
-    for chat in chats:
-        other_id = chat[1] if chat[2] == user_id else chat[2]
-        try:
-            other_user = await bot.fetch_user(other_id)
-            embed.add_field(name=other_user.display_name, value=f"`!open_chat {chat[0]}`", inline=False)
-        except:
-            continue
-
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-# --- Открытие чата и отправка сообщений через Modal ---
-class ChatMessageModal(Modal, title="Отправить сообщение"):
-    content = TextInput(label="Сообщение", style=TextStyle.paragraph, required=False)
-
-    def __init__(self, chat_id, sender):
-        super().__init__()
-        self.chat_id = chat_id
-        self.sender = sender
-
-    async def on_submit(self, interaction: discord.Interaction):
-        file_data = None
-        if interaction.message and interaction.message.attachments:
-            file_data = await interaction.message.attachments[0].read()
-
-        c.execute("INSERT INTO chat_messages (chat_id, sender_id, message, file) VALUES (?, ?, ?, ?)",
-                  (self.chat_id, self.sender.id, self.content.value, file_data))
-        conn.commit()
-        await interaction.response.send_message("Сообщение отправлено!", ephemeral=True)
-
-class OpenChatView(View):
-    def __init__(self, chat_id, user):
-        super().__init__(timeout=300)
-        self.chat_id = chat_id
-        self.user = user
-
-    @discord.ui.button(label="✉️ Написать", style=discord.ButtonStyle.primary)
-    async def send_message(self, interaction: discord.Interaction, button: Button):
-        await interaction.response.send_modal(ChatMessageModal(self.chat_id, self.user))
-
+# --- Приватные чаты ---
 @bot.command()
 async def open_chat(ctx, chat_id: int):
     user_id = ctx.author.id
@@ -178,8 +60,7 @@ async def open_chat(ctx, chat_id: int):
         sender = await bot.fetch_user(msg[2])
         embed.add_field(name=sender.display_name, value=msg[3] or "[вложение]", inline=False)
 
-    view = OpenChatView(chat_id, ctx.author)
-    await ctx.send(embed=embed, view=view)
+    await ctx.send(embed=embed)
 
 # --- Стандартные команды ---
 @bot.command()
@@ -227,6 +108,53 @@ async def info(ctx):
     for title, description in entries:
         embed.add_field(name=title, value=description, inline=False)
     await ctx.send(embed=embed)
+
+# --- Восстановленная команда !gif ---
+@bot.command()
+async def gif(ctx):
+    attachments = ctx.message.attachments
+
+    if not attachments:
+        await ctx.send("❌ Прикрепи изображения или видео для создания GIF.")
+        return
+
+    files = []
+    for a in attachments:
+        filename = a.filename.lower()
+        if filename.endswith((".jpg", ".jpeg", ".png")):
+            files.append(("image", await a.read()))
+        elif filename.endswith((".mp4", ".mov", ".webm")):
+            files.append(("video", await a.read()))
+        else:
+            continue
+
+    if not files:
+        await ctx.send("❌ Поддерживаются только изображения и видео.")
+        return
+
+    if files[0][0] == "video":
+        # Создание GIF из видео
+        video_data = io.BytesIO(files[0][1])
+        with open("temp_video.mp4", "wb") as f:
+            f.write(video_data.read())
+
+        clip = mp.VideoFileClip("temp_video.mp4").subclip(0, 5)  # первые 5 секунд
+        clip = clip.resize(width=320)
+        clip.write_gif("output.gif")
+        await ctx.send(file=discord.File("output.gif"))
+
+        os.remove("temp_video.mp4")
+        os.remove("output.gif")
+
+    else:
+        # Создание GIF из изображений
+        images = [Image.open(io.BytesIO(img[1])).convert("RGBA") for img in files]
+        if len(images) == 1:
+            images[0].save("output.gif", save_all=True, append_images=[images[0]] * 10, duration=100, loop=0)
+        else:
+            images[0].save("output.gif", save_all=True, append_images=images[1:], duration=300, loop=0)
+        await ctx.send(file=discord.File("output.gif"))
+        os.remove("output.gif")
 
 # --- Запуск ---
 @bot.event

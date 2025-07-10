@@ -75,11 +75,12 @@ async def data_base(interaction: Interaction):
     await interaction.response.send_modal(PasswordModal())
 
 # --- Приватные чаты ---
-class ChatPasswordModal(Modal, title="Установить пароль для чата"):
-    password = TextInput(label="Пароль", required=False)
-
+class ChatPasswordModal(Modal):
     def __init__(self):
-        super().__init__()
+        super().__init__(title="Установить пароль для чата")
+        self.password = TextInput(label="Пароль", required=False)
+        self.add_item(self.password)
+
         self.requester = None
         self.partner = None
 

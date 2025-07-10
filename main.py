@@ -78,10 +78,10 @@ async def data_base(interaction: Interaction):
 class ChatPasswordModal(Modal, title="Установить пароль для чата"):
     password = TextInput(label="Пароль", required=False)
 
-    def __init__(self, requester, partner):
+    def __init__(self):
         super().__init__()
-        self.requester = requester
-        self.partner = partner
+        self.requester = None
+        self.partner = None
 
     async def on_submit(self, interaction: discord.Interaction):
         c.execute("INSERT INTO private_chats (user1_id, user2_id, password) VALUES (?, ?, ?)",
@@ -99,7 +99,11 @@ async def chat(interaction: Interaction, member: discord.Member):
     if member == interaction.user:
         await interaction.response.send_message("Нельзя создать чат с самим собой.", ephemeral=True)
         return
-    await interaction.response.send_modal(ChatPasswordModal(interaction.user, member))
+
+    modal = ChatPasswordModal()
+    modal.requester = interaction.user
+    modal.partner = member
+    await interaction.response.send_modal(modal)
 
 @bot.tree.command(name="chats", description="Показать список ваших приватных чатов")
 async def chats(interaction: Interaction):

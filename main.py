@@ -97,8 +97,8 @@ class ChatPasswordModal(Modal, title="Установить пароль для �
             pass
 
 
-@bot.command()
-async def chat(ctx, member: discord.Member):
+@bot.command(name='chat')
+async def start_private_chat(ctx, member_identifier: str):
     if member == ctx.author:
         await ctx.send("Вы не можете начать чат с самим собой.")
         return

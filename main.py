@@ -142,7 +142,7 @@ async def message(ctx, member: discord.Member, *, msg: str = None):
 # --- !dm: анонимная отправка (только для админов) ---
 @bot.command()
 async def dm(ctx, member: discord.Member, *, msg: str = None):
-    if ctx.author.id not in ALLOWED_DM_USERS:
+    if ctx.author.id not in 968698192411652176:
         await ctx.send("У вас нет доступа к этой команде.")
         return
 

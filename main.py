@@ -1,161 +1,113 @@
 import discord
 from discord.ext import commands
-import sqlite3
-import asyncio
 from discord import app_commands
-from discord.ui import Modal, InputText, View, Button
+import sqlite3
 
 intents = discord.Intents.default()
-intents.members = True
+intents.messages = True
 intents.message_content = True
 intents.guilds = True
-intents.messages = True
 
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
+tree = bot.tree
 
-# Подключение к базе данных
-conn = sqlite3.connect('bot_database.db')
-c = conn.cursor()
+# Создание/подключение к БД
+conn = sqlite3.connect("bot_data.db")
+cursor = conn.cursor()
 
-# Создание таблиц
-def setup_database():
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS info (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT,
-            description TEXT
-        )
-    ''')
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS private_chats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user1_id INTEGER,
-            user2_id INTEGER,
-            password TEXT
-        )
-    ''')
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS chat_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_id INTEGER,
-            sender_id INTEGER,
-            message TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
+cursor.execute('''CREATE TABLE IF NOT EXISTS data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL
+)''')
+conn.commit()
 
-setup_database()
+# ========== MODAL С ПАРОЛЕМ ==========
 
-# --- Modal для добавления записи в базу данных ---
-class AddDataModal(Modal):
-    def __init__(self):
-        super().__init__(title="Добавить запись")
-        self.add_item(InputText(label="Заголовок", placeholder="Введите заголовок"))
-        self.add_item(InputText(label="Описание", placeholder="Введите описание"))
+ADMIN_PASSWORD = "1234"  # можно вынести в ENV
 
-    async def callback(self, interaction: discord.Interaction):
-        title = self.children[0].value
-        description = self.children[1].value
-        c.execute("INSERT INTO info (title, description) VALUES (?, ?)", (title, description))
-        conn.commit()
-        await interaction.response.send_message(f"Запись добавлена:\n**{title}** - {description}", ephemeral=True)
+class PasswordModal(discord.ui.Modal, title="Авторизация"):
+    password = discord.ui.TextInput(label="Введите пароль", style=discord.TextStyle.short, min_length=1)
 
-# --- Modal для авторизации перед работой с базой данных ---
-class AuthModal(Modal):
-    def __init__(self):
-        super().__init__(title="Авторизация")
-        self.add_item(InputText(label="Введите пароль"))
+    def __init__(self, interaction: discord.Interaction):
+        super().__init__()
+        self.interaction = interaction
 
-    async def callback(self, interaction: discord.Interaction):
-        password = self.children[0].value
-        if password == "1234":
-            await interaction.response.send_modal(AddDataModal())
+    async def on_submit(self, interaction: discord.Interaction):
+        if self.password.value == ADMIN_PASSWORD:
+            await interaction.response.send_message("Доступ разрешён.", ephemeral=True, view=DatabaseView())
         else:
-            await interaction.response.send_message("Неверный пароль!", ephemeral=True)
+            await interaction.response.send_message("Неверный пароль.", ephemeral=True)
 
-# --- Команда для вызова интерфейса базы данных ---
-@bot.command()
-async def data_base(ctx):
-    class DataBaseView(View):
-        @discord.ui.button(label="Добавить запись", style=discord.ButtonStyle.green)
-        async def add_button(self, interaction: discord.Interaction, button: Button):
-            await interaction.response.send_modal(AuthModal())
+# ========== VIEW С КНОПКАМИ ==========
 
-        @discord.ui.button(label="Показать записи", style=discord.ButtonStyle.blurple)
-        async def show_button(self, interaction: discord.Interaction, button: Button):
-            c.execute("SELECT * FROM info ORDER BY id DESC LIMIT 5")
-            data = c.fetchall()
-            if not data:
-                await interaction.response.send_message("Записей нет.", ephemeral=True)
-                return
-            msg = "\n".join([f"**{row[1]}** — {row[2]}" for row in data])
-            await interaction.response.send_message(msg, ephemeral=True)
+class DatabaseView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
 
-    await ctx.send("Выберите действие:", view=DataBaseView())
+    @discord.ui.button(label="Добавить запись", style=discord.ButtonStyle.green)
+    async def add_data(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(AddDataModal())
 
-# --- Приватные чаты ---
-class ChatRequestModal(Modal):
-    def __init__(self, requester_id, recipient_id):
-        super().__init__(title="Создать приватный чат")
-        self.requester_id = requester_id
-        self.recipient_id = recipient_id
-        self.add_item(InputText(label="Установить пароль (по желанию)", required=False))
+    @discord.ui.button(label="Показать все", style=discord.ButtonStyle.blurple)
+    async def show_data(self, interaction: discord.Interaction, button: discord.ui.Button):
+        cursor.execute("SELECT title, description FROM data")
+        rows = cursor.fetchall()
+        if not rows:
+            await interaction.response.send_message("База данных пуста.", ephemeral=True)
+        else:
+            msg = "\n\n".join([f"**{title}**\n{desc}" for title, desc in rows])
+            await interaction.response.send_message(msg[:2000], ephemeral=True)
 
-    async def callback(self, interaction: discord.Interaction):
-        password = self.children[0].value or ""
-        c.execute("INSERT INTO private_chats (user1_id, user2_id, password) VALUES (?, ?, ?)", 
-                  (self.requester_id, self.recipient_id, password))
+# ========== MODAL ДОБАВЛЕНИЯ ДАННЫХ ==========
+
+class AddDataModal(discord.ui.Modal, title="Новая запись"):
+    title = discord.ui.TextInput(label="Заголовок", max_length=100)
+    description = discord.ui.TextInput(label="Описание", style=discord.TextStyle.paragraph, max_length=1000)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        cursor.execute("INSERT INTO data (title, description) VALUES (?, ?)", (self.title.value, self.description.value))
         conn.commit()
-        await interaction.response.send_message("Приватный чат создан.", ephemeral=True)
+        await interaction.response.send_message("Запись добавлена!", ephemeral=True)
+
+# ========== КОМАНДА ДЛЯ ДОСТУПА К ИНТЕРФЕЙСУ ==========
+
+@tree.command(name="data_base", description="Открыть базу данных")
+async def open_data_base(interaction: discord.Interaction):
+    await interaction.response.send_modal(PasswordModal(interaction))
+
+# ========== СТАРЫЕ КОМАНДЫ ==========
 
 @bot.command()
-async def chat(ctx, member: discord.Member):
-    requester = ctx.author
-    await member.send(f"{requester.name} хочет начать приватный чат с вами.")
-
-    class AcceptDeclineView(View):
-        @discord.ui.button(label="Принять", style=discord.ButtonStyle.green)
-        async def accept(self, interaction: discord.Interaction, button: Button):
-            await interaction.response.send_modal(ChatRequestModal(requester.id, member.id))
-
-        @discord.ui.button(label="Отклонить", style=discord.ButtonStyle.red)
-        async def decline(self, interaction: discord.Interaction, button: Button):
-            await interaction.response.send_message("Запрос отклонён.", ephemeral=True)
-
-    await member.send("Вы принимаете запрос?", view=AcceptDeclineView())
-
-@bot.command()
-async def chats(ctx):
-    user_id = ctx.author.id
-    c.execute("SELECT * FROM private_chats WHERE user1_id=? OR user2_id=?", (user_id, user_id))
-    rows = c.fetchall()
-    if not rows:
-        await ctx.send("У вас нет активных чатов.")
-    else:
-        result = ""
-        for chat in rows:
-            partner_id = chat[1] if chat[2] == user_id else chat[2]
-            user = await bot.fetch_user(partner_id)
-            result += f"Чат с {user.name}\n"
-        await ctx.send(result)
-
-# --- Простые команды ---
-@bot.command()
-async def add(ctx, title: str, *, description: str):
-    c.execute("INSERT INTO info (title, description) VALUES (?, ?)", (title, description))
-    conn.commit()
-    await ctx.send(f"Запись добавлена: **{title}** — {description}")
+async def add(ctx, *, content):
+    with open("data.txt", "a") as file:
+        file.write(content + "\n")
+    await ctx.send("Информация добавлена.")
 
 @bot.command()
 async def info(ctx):
-    c.execute("SELECT * FROM info ORDER BY id DESC LIMIT 5")
-    rows = c.fetchall()
-    if not rows:
-        await ctx.send("Нет записей.")
-    else:
-        for row in rows:
-            await ctx.send(f"**{row[1]}** — {row[2]}")
+    try:
+        with open("data.txt", "r") as file:
+            content = file.read()
+        await ctx.send(content if content else "Нет данных.")
+    except FileNotFoundError:
+        await ctx.send("Файл не найден.")
 
-# Запуск бота
-bot.run('YOUR_TOKEN_HERE')
+@bot.command()
+async def message(ctx, user: discord.User, *, msg):
+    await user.send(msg)
+    await ctx.send("Сообщение отправлено.")
+
+@bot.command()
+async def dm(ctx, user: discord.User):
+    await user.send("Привет! Это личное сообщение.")
+    await ctx.send("Личное сообщение отправлено.")
+
+# ========== ОН РЕДИ ==========
+
+@bot.event
+async def on_ready():
+    await tree.sync()
+    print(f"Бот запущен как {bot.user}")
+
+bot.run(TOKEN)

@@ -8,8 +8,8 @@ import moviepy.editor as mp
 import uuid
 from discord import app_commands
 
-allowed_guild_ids = [1392735009957347419]  # Укажи нужные ID серверов
-sbor_channels = {}  # guild_id -> channel_id
+allowed_guild_ids = [1392735009957347419]  # <-- Заменить на ID разрешённых серверов
+active_sbor_channels = {}
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)

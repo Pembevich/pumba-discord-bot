@@ -294,7 +294,6 @@ if len(lines) != 5:
         template
     )
     return
-        return
 
     nickname_line, id_line, time_line, reason_line, evidence_line = lines
 

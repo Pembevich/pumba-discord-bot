@@ -186,7 +186,7 @@ async def sbor(interaction: discord.Interaction, role: discord.Role):
         interaction.guild.default_role: discord.PermissionOverwrite(connect=False),
         role: discord.PermissionOverwrite(connect=True, view_channel=True)
     }
-    voice_channel = await interaction.guild.create_stage_channel("Сбор", overwrites=overwrites)
+    voice_channel = await interaction.guild.create_voice_channel("сбор", overwrites=overwrites)
     sbor_channels[interaction.guild.id] = voice_channel.id
 
     webhook = await interaction.channel.create_webhook(name="Сбор")
@@ -197,7 +197,7 @@ async def sbor(interaction: discord.Interaction, role: discord.Role):
     )
     await webhook.delete()
     await interaction.followup.send("✅ Сбор создан!")
-
+    
 # --- /sbor_end ---
 @bot.tree.command(name="sbor_end", description="Завершить сбор и удалить голосовой канал")
 async def sbor_end(interaction: discord.Interaction):

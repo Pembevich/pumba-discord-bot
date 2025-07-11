@@ -266,34 +266,24 @@ async def on_message(message):
     if message.channel.id != target_channel_id or message.author.bot:
         return
 
-    # Шаблон
-    template = (
-        "Никнейм: (любой текст)\n"
-        "Дс айди: (цифровой ID)\n"
-        "Время: (например, 1h 30min)\n"
-        "Причина: (любая причина)\n"
-        "Док-ва: (ссылка или описание)"
-    )
-
     # Проверка структуры
     lines = message.content.strip().split("\n")
     if len(lines) != 5:
         template = (
-    "Никнейм: TSergey2008\n"
-    "Дс айди: 123456789012345678\n"
-    "Время: 1h 30min\n"
-    "Причина: FEARRP+NONRP\n"
-    "Док-ва: https://example.com"
-)
+            "Никнейм: TSergey2008\n"
+            "Дс айди: 123456789012345678\n"
+            "Время: 1h 30min\n"
+            "Причина: FEARRP+NONRP\n"
+            "Док-ва: https://example.com"
+        )
 
-if len(lines) != 5:
-    await send_error_embed(
-        message.channel,
-        message.author,
-        "Неверное количество строк. Ожидается 5 строк (Никнейм, Дс айди, Время, Причина, Док-ва).",
-        template
-    )
-    return
+        await send_error_embed(
+            message.channel,
+            message.author,
+            "Неверное количество строк. Ожидается 5 строк (Никнейм, Дс айди, Время, Причина, Док-ва).",
+            template
+        )
+        return
 
     nickname_line, id_line, time_line, reason_line, evidence_line = lines
 

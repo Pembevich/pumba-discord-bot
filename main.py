@@ -7,6 +7,8 @@ from PIL import Image
 import moviepy.editor as mp
 import uuid
 from discord import app_commands
+import re
+import asyncio
 
 allowed_guild_ids = [1392735009957347419]  # Укажи нужные ID серверов
 sbor_channels = {}  # guild_id -> channel_id
@@ -235,6 +237,63 @@ async def sbor_end(interaction: discord.Interaction):
 
     sbor_channels.pop(interaction.guild.id, None)
     await interaction.followup.send("✅ Сбор завершён.")
+
+target_channel_id = 1393342266503987270  # Канал, в котором проверяются сообщения
+
+@bot.event
+async def on_message(message):
+    if message.channel.id != target_channel_id or message.author.bot:
+        return
+
+    pattern = (
+        r"^Никнейм:\s*(.+)\n"
+        r"Дс айди:\s*(\d{17,19})\n"
+        r"Время:\s*((?:\d+h)?(?:\s*\d+min)?)\n"
+        r"Причина:\s*(.+)\n"
+        r"Док-ва:\s*(.+)"
+    )
+
+    match = re.match(pattern, message.content.strip(), re.IGNORECASE)
+    if not match:
+        return
+
+    nickname, user_id_str, time_str, reason, evidence = match.groups()
+    try:
+        user_id = int(user_id_str)
+        member = await message.guild.fetch_member(user_id)
+    except:
+        await message.reply("❌ Указанный ID недействителен или пользователь не найден.")
+        return
+
+    # Парсинг времени
+    total_seconds = 0
+    h_match = re.search(r"(\d+)h", time_str)
+    m_match = re.search(r"(\d+)min", time_str)
+    if h_match:
+        total_seconds += int(h_match.group(1)) * 3600
+    if m_match:
+        total_seconds += int(m_match.group(1)) * 60
+
+    if total_seconds == 0:
+        await message.reply("❌ Время указано неверно.")
+        return
+
+    # Бан
+    try:
+        await message.guild.ban(member, reason=reason)
+        await message.add_reaction("✅")
+
+        # Разбан по истечении времени
+        async def unban_later():
+            await asyncio.sleep(total_seconds)
+            await message.guild.unban(discord.Object(id=user_id), reason="Время бана истекло")
+
+        bot.loop.create_task(unban_later())
+
+    except Exception as e:
+        await message.reply(f"❌ Не удалось забанить: {e}")
+
+    await bot.process_commands(message)  # Чтобы не блокировать другие команды
 
 # --- Запуск ---
 @bot.event

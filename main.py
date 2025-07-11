@@ -134,35 +134,33 @@ async def gif(ctx):
         return
 
     if files[0][0] == "video":
-        # Создание GIF из видео
-        import uuid  # вверху файла
+        # --- Создание GIF из видео ---
+        import uuid  # Можно оставить в теле, либо вынести в начало файла
 
-# ...
+        video_data = io.BytesIO(files[0][1])
+        unique_id = str(uuid.uuid4())
+        temp_video_path = f"{unique_id}.mp4"
+        temp_gif_path = f"{unique_id}.gif"
 
-video_data = io.BytesIO(files[0][1])
-unique_id = str(uuid.uuid4())
-temp_video_path = f"{unique_id}.mp4"
-temp_gif_path = f"{unique_id}.gif"
+        with open(temp_video_path, "wb") as f:
+            f.write(video_data.read())
 
-with open(temp_video_path, "wb") as f:
-    f.write(video_data.read())
+        try:
+            clip = mp.VideoFileClip(temp_video_path).subclip(0, 5)  # первые 5 секунд
+            clip = clip.resize(width=320)
+            clip.write_gif(temp_gif_path)
 
-try:
-    clip = mp.VideoFileClip(temp_video_path).subclip(0, 5)
-    clip = clip.resize(width=320)
-    clip.write_gif(temp_gif_path)
-
-    await ctx.send(file=discord.File(temp_gif_path))
-except Exception as e:
-    await ctx.send(f"❌ Ошибка при создании GIF: {e}")
-finally:
-    if os.path.exists(temp_video_path):
-        os.remove(temp_video_path)
-    if os.path.exists(temp_gif_path):
-        os.remove(temp_gif_path)
+            await ctx.send(file=discord.File(temp_gif_path))
+        except Exception as e:
+            await ctx.send(f"❌ Ошибка при создании GIF: {e}")
+        finally:
+            if os.path.exists(temp_video_path):
+                os.remove(temp_video_path)
+            if os.path.exists(temp_gif_path):
+                os.remove(temp_gif_path)
 
     else:
-        # Создание GIF из изображений
+        # --- Создание GIF из изображений ---
         images = [Image.open(io.BytesIO(img[1])).convert("RGBA") for img in files]
         if len(images) == 1:
             images[0].save("output.gif", save_all=True, append_images=[images[0]] * 10, duration=100, loop=0)
@@ -170,7 +168,7 @@ finally:
             images[0].save("output.gif", save_all=True, append_images=images[1:], duration=300, loop=0)
         await ctx.send(file=discord.File("output.gif"))
         os.remove("output.gif")
-
+        
 # --- Запуск ---
 @bot.event
 async def on_ready():

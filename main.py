@@ -267,23 +267,22 @@ async def on_message(message):
         return
 
     # Проверка структуры
-    lines = message.content.strip().split("\n")
-    if len(lines) != 5:
-        template = (
-            "Никнейм: TSergey2008\n"
-            "Дс айди: 123456789012345678\n"
-            "Время: 1h 30min\n"
-            "Причина: FEARRP+NONRP\n"
-            "Док-ва: https://example.com"
-        )
-
-        await send_error_embed(
-            message.channel,
-            message.author,
-            "Неверное количество строк. Ожидается 5 строк (Никнейм, Дс айди, Время, Причина, Док-ва).",
-            template
-        )
-        return
+lines = [line.strip() for line in message.content.strip().split("\n") if line.strip()]
+if len(lines) != 5:
+    template = (
+        "Никнейм: TSergey2008\n"
+        "Дс айди: 123456789012345678\n"
+        "Время: 1h 30min\n"
+        "Причина: причина выдачи черного списка\n"
+        "Док-ва: Скрин/ссылка"
+    )
+    await send_error_embed(
+        message.channel,
+        message.author,
+        "Неверное количество строк. Ожидается 5 строк (Никнейм, Дс айди, Время, Причина, Док-ва).",
+        template
+    )
+    return
 
     nickname_line, id_line, time_line, reason_line, evidence_line = lines
 

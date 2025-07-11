@@ -199,7 +199,7 @@ async def sbor(interaction: discord.Interaction, role: discord.Role):
 
     webhook = await interaction.channel.create_webhook(name="Сбор")
     await webhook.send(
-        content=f"**Сбор! {role.mention} <#{voice_channel.id}>**",
+        content=f"**Сбор! {role.mention}. Заходите в <#{voice_channel.id}>!**",
         username="Сбор",
         avatar_url=bot.user.avatar.url if bot.user.avatar else None
     )

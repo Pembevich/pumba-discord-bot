@@ -186,7 +186,15 @@ async def sbor(interaction: discord.Interaction, role: discord.Role):
         interaction.guild.default_role: discord.PermissionOverwrite(connect=False),
         role: discord.PermissionOverwrite(connect=True, view_channel=True)
     }
-    voice_channel = await interaction.guild.create_voice_channel("сбор", overwrites=overwrites)
+
+    category = interaction.channel.category  # Получаем категорию текущего текстового канала
+
+    voice_channel = await interaction.guild.create_voice_channel(
+        "Сбор",
+        overwrites=overwrites,
+        category=category  # Устанавливаем категорию
+    )
+
     sbor_channels[interaction.guild.id] = voice_channel.id
 
     webhook = await interaction.channel.create_webhook(name="Сбор")
@@ -196,6 +204,7 @@ async def sbor(interaction: discord.Interaction, role: discord.Role):
         avatar_url=bot.user.avatar.url if bot.user.avatar else None
     )
     await webhook.delete()
+
     await interaction.followup.send("✅ Сбор создан!")
     
 # --- /sbor_end ---

@@ -9,6 +9,8 @@ import uuid
 from discord import app_commands
 import re
 import asyncio
+from discord import Embed, Color
+from datetime import datetime
 
 allowed_guild_ids = [1392735009957347419]  # Укажи нужные ID серверов
 sbor_channels = {}  # guild_id -> channel_id
@@ -246,6 +248,19 @@ async def on_ready():
 
 target_channel_id = 1393342266503987270  # Канал, где бот проверяет шаблон
 
+async def send_error_embed(channel, author, error_text, example_template):
+    now = datetime.now().strftime("%d.%m.%Y %H:%M:%S МСК")
+    
+    embed = Embed(
+        title="❌ Ошибка отправки отчёта",
+        description=error_text,
+        color=Color.red()
+    )
+    embed.add_field(name="📝 Как оформить правильно", value=f"```{example_template}```", inline=False)
+    embed.set_footer(text=f"Вызвал: {author.name} | ID: {author.id} | {now}")
+    
+    await channel.send(embed=embed)
+
 @bot.event
 async def on_message(message):
     if message.channel.id != target_channel_id or message.author.bot:
@@ -263,7 +278,22 @@ async def on_message(message):
     # Проверка структуры
     lines = message.content.strip().split("\n")
     if len(lines) != 5:
-        await message.reply(f"❌ Неверное количество строк.\n**Пример правильного шаблона:**\n```{template}```")
+        template = (
+    "Никнейм: TSergey2008\n"
+    "Дс айди: 123456789012345678\n"
+    "Время: 1h 30min\n"
+    "Причина: FEARRP+NONRP\n"
+    "Док-ва: https://example.com"
+)
+
+if len(lines) != 5:
+    await send_error_embed(
+        message.channel,
+        message.author,
+        "Неверное количество строк. Ожидается 5 строк (Никнейм, Дс айди, Время, Причина, Док-ва).",
+        template
+    )
+    return
         return
 
     nickname_line, id_line, time_line, reason_line, evidence_line = lines

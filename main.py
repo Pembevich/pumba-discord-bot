@@ -241,9 +241,8 @@ class Sbor(commands.Cog):
 # Добавление в основной файл
 @bot.event
 async def on_ready():
+    await bot.add_cog(Sbor(bot))
     await bot.tree.sync()
     print(f"✅ Бот запущен как {bot.user}")
-
-bot.add_cog(Sbor(bot))
 
 bot.run(os.getenv("DISCORD_TOKEN"))

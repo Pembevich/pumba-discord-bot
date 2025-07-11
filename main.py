@@ -135,7 +135,6 @@ async def gif(ctx):
 
     if files[0][0] == "video":
         # --- Создание GIF из видео ---
-        import uuid  # Можно оставить в теле, либо вынести в начало файла
 
         video_data = io.BytesIO(files[0][1])
         unique_id = str(uuid.uuid4())

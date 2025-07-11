@@ -6,6 +6,10 @@ import io
 from PIL import Image
 import moviepy.editor as mp
 import uuid
+from discord import app_commands
+
+allowed_guild_ids = [123456789012345678]  # Укажи нужные ID серверов
+sbor_channels = {}  # guild_id -> channel_id
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -167,10 +171,71 @@ async def gif(ctx):
             images[0].save("output.gif", save_all=True, append_images=images[1:], duration=300, loop=0)
         await ctx.send(file=discord.File("output.gif"))
         os.remove("output.gif")
-        
+
+class Sbor(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @app_commands.command(name="sbor", description="Начать сбор: создаёт голосовой канал и пингует роль")
+    @app_commands.describe(role="Роль, которую нужно пинговать")
+    async def sbor(self, interaction: discord.Interaction, role: discord.Role):
+        if interaction.guild.id not in allowed_guild_ids:
+            await interaction.response.send_message("❌ Команда недоступна на этом сервере.", ephemeral=True)
+            return
+
+        # Проверка, существует ли уже канал "сбор"
+        existing = discord.utils.get(interaction.guild.voice_channels, name="сбор")
+        if existing:
+            await interaction.response.send_message("❗ Канал 'сбор' уже существует.", ephemeral=True)
+            return
+
+        # Создаём голосовой канал
+        overwrites = {
+            interaction.guild.default_role: discord.PermissionOverwrite(connect=False),
+            role: discord.PermissionOverwrite(connect=True, view_channel=True)
+        }
+        voice_channel = await interaction.guild.create_voice_channel("сбор", overwrites=overwrites)
+        sbor_channels[interaction.guild.id] = voice_channel.id
+
+        # Отправка вебхука
+        webhook = await interaction.channel.create_webhook(name="Сбор")
+        await webhook.send(
+            content=f"**Сбор! {role.mention} <#{voice_channel.id}>**",
+            username="Сбор",
+            avatar_url=self.bot.user.avatar.url if self.bot.user.avatar else None
+        )
+        await webhook.delete()
+        await interaction.response.send_message("✅ Сбор создан!", ephemeral=True)
+
+    @app_commands.command(name="sbor_end", description="Завершить сбор и удалить голосовой канал")
+    async def sbor_end(self, interaction: discord.Interaction):
+        if interaction.guild.id not in allowed_guild_ids:
+            await interaction.response.send_message("❌ Команда недоступна на этом сервере.", ephemeral=True)
+            return
+
+        channel_id = sbor_channels.get(interaction.guild.id)
+        if not channel_id:
+            await interaction.response.send_message("❗ Канал 'сбор' не найден.", ephemeral=True)
+            return
+
+        channel = interaction.guild.get_channel(channel_id)
+        if channel:
+            await channel.delete()
+
+        webhook = await interaction.channel.create_webhook(name="Сбор")
+        await webhook.send(
+            content="*Сбор окончен!*",
+            username="Сбор",
+            avatar_url=self.bot.user.avatar.url if self.bot.user.avatar else None
+        )
+        await webhook.delete()
+
+        sbor_channels.pop(interaction.guild.id, None)
+        await interaction.response.send_message("✅ Сбор завершён.", ephemeral=True)
 # --- Запуск ---
 @bot.event
 async def on_ready():
+    await bot.add_cog(Sbor(bot))
     await bot.tree.sync()
     print(f"✅ Бот запущен как {bot.user}")
 

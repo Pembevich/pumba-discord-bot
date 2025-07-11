@@ -5,6 +5,7 @@ import os
 import io
 from PIL import Image
 import moviepy.editor as mp
+import uuid
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -134,17 +135,31 @@ async def gif(ctx):
 
     if files[0][0] == "video":
         # Создание GIF из видео
-        video_data = io.BytesIO(files[0][1])
-        with open("temp_video.mp4", "wb") as f:
-            f.write(video_data.read())
+        import uuid  # вверху файла
 
-        clip = mp.VideoFileClip("temp_video.mp4").subclip(0, 5)  # первые 5 секунд
-        clip = clip.resize(width=320)
-        clip.write_gif("output.gif")
-        await ctx.send(file=discord.File("output.gif"))
+# ...
 
-        os.remove("temp_video.mp4")
-        os.remove("output.gif")
+video_data = io.BytesIO(files[0][1])
+unique_id = str(uuid.uuid4())
+temp_video_path = f"{unique_id}.mp4"
+temp_gif_path = f"{unique_id}.gif"
+
+with open(temp_video_path, "wb") as f:
+    f.write(video_data.read())
+
+try:
+    clip = mp.VideoFileClip(temp_video_path).subclip(0, 5)
+    clip = clip.resize(width=320)
+    clip.write_gif(temp_gif_path)
+
+    await ctx.send(file=discord.File(temp_gif_path))
+except Exception as e:
+    await ctx.send(f"❌ Ошибка при создании GIF: {e}")
+finally:
+    if os.path.exists(temp_video_path):
+        os.remove(temp_video_path)
+    if os.path.exists(temp_gif_path):
+        os.remove(temp_gif_path)
 
     else:
         # Создание GIF из изображений

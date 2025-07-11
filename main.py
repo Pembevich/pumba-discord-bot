@@ -238,52 +238,85 @@ async def sbor_end(interaction: discord.Interaction):
     sbor_channels.pop(interaction.guild.id, None)
     await interaction.followup.send("✅ Сбор завершён.")
 
-target_channel_id = 1393342266503987270  # Канал, в котором проверяются сообщения
+# --- Запуск ---
+@bot.event
+async def on_ready():
+    await bot.tree.sync()
+    print(f"✅ Бот запущен как {bot.user}")
+
+target_channel_id = 1393342266503987270  # Канал, где бот проверяет шаблон
 
 @bot.event
 async def on_message(message):
     if message.channel.id != target_channel_id or message.author.bot:
         return
 
-    pattern = (
-        r"^Никнейм:\s*(.+)\n"
-        r"Дс айди:\s*(\d{17,19})\n"
-        r"Время:\s*((?:\d+h)?(?:\s*\d+min)?)\n"
-        r"Причина:\s*(.+)\n"
-        r"Док-ва:\s*(.+)"
+    # Шаблон
+    template = (
+        "Никнейм: (любой текст)\n"
+        "Дс айди: (цифровой ID)\n"
+        "Время: (например, 1h 30min)\n"
+        "Причина: (любая причина)\n"
+        "Док-ва: (ссылка или описание)"
     )
 
-    match = re.match(pattern, message.content.strip(), re.IGNORECASE)
-    if not match:
+    # Проверка структуры
+    lines = message.content.strip().split("\n")
+    if len(lines) != 5:
+        await message.reply(f"❌ Неверное количество строк.\n**Пример правильного шаблона:**\n```{template}```")
         return
 
-    nickname, user_id_str, time_str, reason, evidence = match.groups()
+    nickname_line, id_line, time_line, reason_line, evidence_line = lines
+
+    # Проверка каждой строки
+    if not nickname_line.lower().startswith("никнейм:"):
+        await message.reply(f"❌ Строка 1 должна начинаться с `Никнейм:`\n```{template}```")
+        return
+
+    if not id_line.lower().startswith("дс айди:"):
+        await message.reply(f"❌ Строка 2 должна начинаться с `Дс айди:`\n```{template}```")
+        return
+
+    if not time_line.lower().startswith("время:"):
+        await message.reply(f"❌ Строка 3 должна начинаться с `Время:`\n```{template}```")
+        return
+
+    if not reason_line.lower().startswith("причина:"):
+        await message.reply(f"❌ Строка 4 должна начинаться с `Причина:`\n```{template}```")
+        return
+
+    if not evidence_line.lower().startswith("док-ва:"):
+        await message.reply(f"❌ Строка 5 должна начинаться с `Док-ва:`\n```{template}```")
+        return
+
+    # Извлечение данных
     try:
-        user_id = int(user_id_str)
-        member = await message.guild.fetch_member(user_id)
-    except:
-        await message.reply("❌ Указанный ID недействителен или пользователь не найден.")
+        user_id = int(id_line.split(":", 1)[1].strip())
+    except ValueError:
+        await message.reply(f"❌ `Дс айди` должен быть числом.\n```{template}```")
         return
 
-    # Парсинг времени
+    time_text = time_line.split(":", 1)[1].strip()
+    h_match = re.search(r"(\d+)\s*h", time_text)
+    m_match = re.search(r"(\d+)\s*min", time_text)
+
     total_seconds = 0
-    h_match = re.search(r"(\d+)h", time_str)
-    m_match = re.search(r"(\d+)min", time_str)
     if h_match:
         total_seconds += int(h_match.group(1)) * 3600
     if m_match:
         total_seconds += int(m_match.group(1)) * 60
 
     if total_seconds == 0:
-        await message.reply("❌ Время указано неверно.")
+        await message.reply(f"❌ Указано некорректное время. Примеры: `1h`, `30min`, `1h 15min`.\n```{template}```")
         return
 
     # Бан
     try:
+        member = await message.guild.fetch_member(user_id)
+        reason = reason_line.split(":", 1)[1].strip()
         await message.guild.ban(member, reason=reason)
         await message.add_reaction("✅")
 
-        # Разбан по истечении времени
         async def unban_later():
             await asyncio.sleep(total_seconds)
             await message.guild.unban(discord.Object(id=user_id), reason="Время бана истекло")
@@ -291,14 +324,8 @@ async def on_message(message):
         bot.loop.create_task(unban_later())
 
     except Exception as e:
-        await message.reply(f"❌ Не удалось забанить: {e}")
+        await message.reply(f"❌ Не удалось забанить пользователя: {e}")
 
-    await bot.process_commands(message)  # Чтобы не блокировать другие команды
-
-# --- Запуск ---
-@bot.event
-async def on_ready():
-    await bot.tree.sync()
-    print(f"✅ Бот запущен как {bot.user}")
+    await bot.process_commands(message)
 
 bot.run(os.getenv("DISCORD_TOKEN"))

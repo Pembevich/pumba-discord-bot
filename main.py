@@ -266,16 +266,16 @@ async def on_message(message):
     if message.channel.id != target_channel_id or message.author.bot:
         return
 
-    # Проверка структуры
+    template = (
+        "Никнейм: TSergey2008\n"
+        "Дс айди: 123456789012345678\n"
+        "Время: 1h 30min\n"
+        "Причина: причина выдачи черного списка\n"
+        "Док-ва: Скрин/ссылка"
+    )
+
     lines = [line.strip() for line in message.content.strip().split("\n") if line.strip()]
     if len(lines) != 5:
-        template = (
-            "Никнейм: TSergey2008\n"
-            "Дс айди: 123456789012345678\n"
-            "Время: 1h 30min\n"
-            "Причина: причина выдачи черного списка\n"
-            "Док-ва: доказательства причины бана"
-        )
         await send_error_embed(
             message.channel,
             message.author,
@@ -284,33 +284,65 @@ async def on_message(message):
         )
         return
 
-    nickname_line, id_line, time_line, reason_line, proof_line = lines
+    nickname_line, id_line, time_line, reason_line, evidence_line = lines
 
-    # Проверка формата
     if not nickname_line.lower().startswith("никнейм:"):
-        await message.reply("❌ Строка 1 должна начинаться с `Никнейм:`")
-        return
-    if not id_line.lower().startswith("дс айди:"):
-        await message.reply("❌ Строка 2 должна начинаться с `Дс айди:`")
-        return
-    if not time_line.lower().startswith("время:"):
-        await message.reply("❌ Строка 3 должна начинаться с `Время:`")
-        return
-    if not reason_line.lower().startswith("причина:"):
-        await message.reply("❌ Строка 4 должна начинаться с `Причина:`")
-        return
-    if not proof_line.lower().startswith("док-ва:"):
-        await message.reply("❌ Строка 5 должна начинаться с `Док-ва:`")
+        await send_error_embed(
+            message.channel,
+            message.author,
+            "Строка 1 должна начинаться с `Никнейм:`",
+            template
+        )
         return
 
-    # Извлечение ID
+    if not id_line.lower().startswith("дс айди:"):
+        await send_error_embed(
+            message.channel,
+            message.author,
+            "Строка 2 должна начинаться с `Дс айди:`",
+            template
+        )
+        return
+
+    if not time_line.lower().startswith("время:"):
+        await send_error_embed(
+            message.channel,
+            message.author,
+            "Строка 3 должна начинаться с `Время:`",
+            template
+        )
+        return
+
+    if not reason_line.lower().startswith("причина:"):
+        await send_error_embed(
+            message.channel,
+            message.author,
+            "Строка 4 должна начинаться с `Причина:`",
+            template
+        )
+        return
+
+    if not evidence_line.lower().startswith("док-ва:"):
+        await send_error_embed(
+            message.channel,
+            message.author,
+            "Строка 5 должна начинаться с `Док-ва:`",
+            template
+        )
+        return
+
+    # Извлечение данных
     try:
         user_id = int(id_line.split(":", 1)[1].strip())
     except ValueError:
-        await message.reply("❌ `Дс айди` должен быть числом.")
+        await send_error_embed(
+            message.channel,
+            message.author,
+            "`Дс айди` должен быть числом.",
+            template
+        )
         return
 
-    # Извлечение времени
     time_text = time_line.split(":", 1)[1].strip()
     h_match = re.search(r"(\d+)\s*h", time_text)
     m_match = re.search(r"(\d+)\s*min", time_text)
@@ -322,13 +354,19 @@ async def on_message(message):
         total_seconds += int(m_match.group(1)) * 60
 
     if total_seconds == 0:
-        await message.reply("❌ Указано некорректное время. Примеры: `1h`, `30min`, `1h 15min`.")
+        await send_error_embed(
+            message.channel,
+            message.author,
+            "Указано некорректное время. Примеры: `1h`, `30min`, `1h 15min`.",
+            template
+        )
         return
 
-    # Бан пользователя по ID
+    # Бан
     try:
+        member = await message.guild.fetch_member(user_id)
         reason = reason_line.split(":", 1)[1].strip()
-        await message.guild.ban(discord.Object(id=user_id), reason=reason)
+        await message.guild.ban(member, reason=reason)
         await message.add_reaction("✅")
 
         async def unban_later():
@@ -336,8 +374,14 @@ async def on_message(message):
             await message.guild.unban(discord.Object(id=user_id), reason="Время бана истекло")
 
         bot.loop.create_task(unban_later())
+
     except Exception as e:
-        await message.reply(f"❌ Не удалось забанить пользователя по ID: {e}")
+        await send_error_embed(
+            message.channel,
+            message.author,
+            f"Не удалось забанить пользователя: {e}",
+            template
+        )
 
     await bot.process_commands(message)
 

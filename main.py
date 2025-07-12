@@ -268,22 +268,23 @@ async def on_message(message):
 
     # Проверка структуры
     lines = [line.strip() for line in message.content.strip().split("\n") if line.strip()]
-    if len(lines) != 4:
+    if len(lines) != 5:
         template = (
             "Никнейм: TSergey2008\n"
             "Дс айди: 123456789012345678\n"
             "Время: 1h 30min\n"
-            "Причина: причина выдачи черного списка"
+            "Причина: причина выдачи черного списка\n"
+            "Док-ва: доказательства причины бана"
         )
         await send_error_embed(
             message.channel,
             message.author,
-            "Неверное количество строк. Ожидается 4 строки (Никнейм, Дс айди, Время, Причина).",
+            "Неверное количество строк. Ожидается 5 строк (Никнейм, Дс айди, Время, Причина, Док-ва).",
             template
         )
         return
 
-    nickname_line, id_line, time_line, reason_line = lines
+    nickname_line, id_line, time_line, reason_line, proof_line = lines
 
     # Проверка формата
     if not nickname_line.lower().startswith("никнейм:"):
@@ -297,6 +298,9 @@ async def on_message(message):
         return
     if not reason_line.lower().startswith("причина:"):
         await message.reply("❌ Строка 4 должна начинаться с `Причина:`")
+        return
+    if not proof_line.lower().startswith("док-ва:"):
+        await message.reply("❌ Строка 5 должна начинаться с `Док-ва:`")
         return
 
     # Извлечение ID

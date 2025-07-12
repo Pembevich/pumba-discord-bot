@@ -294,11 +294,11 @@ async def on_message(message):
 
     if message.channel.id == target_channel_id:
         template = (
-            "Никнейм: TSergey2008\n"
+            "Никнейм: Vanya1234\n"
             "Дс айди: 123456789012345678\n"
             "Время: 1h 30min\n"
             "Причина: причина выдачи черного списка\n"
-            "Док-ва: Скрин/ссылка"
+            "Док-ва: Скрин/ссылка (в определённых случаях могут отсутсовать)"
         )
 
         lines = [line.strip() for line in message.content.strip().split("\n") if line.strip()]
@@ -325,32 +325,39 @@ async def on_message(message):
             await bot.process_commands(message)
             return
 
-        time_text = time_line.split(":", 1)[1].strip()
-        h_match = re.search(r"(\d+)\s*h", time_text)
-        m_match = re.search(r"(\d+)\s*min", time_text)
+        time_text = time_line.split(":", 1)[1].strip().lower()
+        reason = reason_line.split(":", 1)[1].strip()
 
-        total_seconds = 0
-        if h_match:
-            total_seconds += int(h_match.group(1)) * 3600
-        if m_match:
-            total_seconds += int(m_match.group(1)) * 60
+        # Поддержка Perm
+        if time_text == "perm":
+            total_seconds = None  # Перманентный бан
+        else:
+            h_match = re.search(r"(\d+)\s*h", time_text)
+            m_match = re.search(r"(\d+)\s*min", time_text)
 
-        if total_seconds == 0:
-            await send_error_embed(message.channel, message.author, "Некорректное время.", template)
-            await bot.process_commands(message)
-            return
+            total_seconds = 0
+            if h_match:
+                total_seconds += int(h_match.group(1)) * 3600
+            if m_match:
+                total_seconds += int(m_match.group(1)) * 60
+
+            if total_seconds == 0:
+                await send_error_embed(message.channel, message.author, "Некорректное время. Укажи `Perm` или формат вида `1h 30min`.", template)
+                await bot.process_commands(message)
+                return
 
         try:
-            member = await message.guild.fetch_member(user_id)
-            reason = reason_line.split(":", 1)[1].strip()
-            await message.guild.ban(member, reason=reason)
+            # Бан по ID, даже если пользователя нет на сервере
+            await message.guild.ban(discord.Object(id=user_id), reason=reason)
             await message.add_reaction("✅")
 
-            async def unban_later():
-                await asyncio.sleep(total_seconds)
-                await message.guild.unban(discord.Object(id=user_id), reason="Время бана истекло")
+            # Отложенный разбан (если не перманентный)
+            if total_seconds:
+                async def unban_later():
+                    await asyncio.sleep(total_seconds)
+                    await message.guild.unban(discord.Object(id=user_id), reason="Время бана истекло")
 
-            bot.loop.create_task(unban_later())
+                bot.loop.create_task(unban_later())
 
         except Exception as e:
             await send_error_embed(message.channel, message.author, f"Не удалось забанить пользователя: {e}", template)

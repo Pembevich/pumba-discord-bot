@@ -273,67 +273,72 @@ async def send_error_embed(channel, author, error_text, example_template):
 
 @bot.event
 async def on_message(message):
-    if message.channel.id != target_channel_id or message.author.bot:
+    if message.author.bot:
         return
 
-    template = (
-        "Никнейм: TSergey2008\n"
-        "Дс айди: 123456789012345678\n"
-        "Время: 1h 30min\n"
-        "Причина: причина выдачи черного списка\n"
-        "Док-ва: Скрин/ссылка"
-    )
+    if message.channel.id == target_channel_id:
+        template = (
+            "Никнейм: TSergey2008\n"
+            "Дс айди: 123456789012345678\n"
+            "Время: 1h 30min\n"
+            "Причина: причина выдачи черного списка\n"
+            "Док-ва: Скрин/ссылка"
+        )
 
-    lines = [line.strip() for line in message.content.strip().split("\n") if line.strip()]
-    if len(lines) != 5:
-        await send_error_embed(message.channel, message.author, "Неверное количество строк.", template)
-        return
+        lines = [line.strip() for line in message.content.strip().split("\n") if line.strip()]
+        if len(lines) != 5:
+            await send_error_embed(message.channel, message.author, "Неверное количество строк.", template)
+            await bot.process_commands(message)
+            return
 
-    nickname_line, id_line, time_line, reason_line, evidence_line = lines
+        nickname_line, id_line, time_line, reason_line, evidence_line = lines
 
-    if not nickname_line.lower().startswith("никнейм:") \
-        or not id_line.lower().startswith("дс айди:") \
-        or not time_line.lower().startswith("время:") \
-        or not reason_line.lower().startswith("причина:") \
-        or not evidence_line.lower().startswith("док-ва:"):
-        await send_error_embed(message.channel, message.author, "Некорректный шаблон.", template)
-        return
+        if not nickname_line.lower().startswith("никнейм:") \
+            or not id_line.lower().startswith("дс айди:") \
+            or not time_line.lower().startswith("время:") \
+            or not reason_line.lower().startswith("причина:") \
+            or not evidence_line.lower().startswith("док-ва:"):
+            await send_error_embed(message.channel, message.author, "Некорректный шаблон.", template)
+            await bot.process_commands(message)
+            return
 
-    try:
-        user_id = int(id_line.split(":", 1)[1].strip())
-    except ValueError:
-        await send_error_embed(message.channel, message.author, "`Дс айди` должен быть числом.", template)
-        return
+        try:
+            user_id = int(id_line.split(":", 1)[1].strip())
+        except ValueError:
+            await send_error_embed(message.channel, message.author, "`Дс айди` должен быть числом.", template)
+            await bot.process_commands(message)
+            return
 
-    time_text = time_line.split(":", 1)[1].strip()
-    h_match = re.search(r"(\d+)\s*h", time_text)
-    m_match = re.search(r"(\d+)\s*min", time_text)
+        time_text = time_line.split(":", 1)[1].strip()
+        h_match = re.search(r"(\d+)\s*h", time_text)
+        m_match = re.search(r"(\d+)\s*min", time_text)
 
-    total_seconds = 0
-    if h_match:
-        total_seconds += int(h_match.group(1)) * 3600
-    if m_match:
-        total_seconds += int(m_match.group(1)) * 60
+        total_seconds = 0
+        if h_match:
+            total_seconds += int(h_match.group(1)) * 3600
+        if m_match:
+            total_seconds += int(m_match.group(1)) * 60
 
-    if total_seconds == 0:
-        await send_error_embed(message.channel, message.author, "Некорректное время.", template)
-        return
+        if total_seconds == 0:
+            await send_error_embed(message.channel, message.author, "Некорректное время.", template)
+            await bot.process_commands(message)
+            return
 
-    try:
-        member = await message.guild.fetch_member(user_id)
-        reason = reason_line.split(":", 1)[1].strip()
-        await message.guild.ban(member, reason=reason)
-        await message.add_reaction("✅")
+        try:
+            member = await message.guild.fetch_member(user_id)
+            reason = reason_line.split(":", 1)[1].strip()
+            await message.guild.ban(member, reason=reason)
+            await message.add_reaction("✅")
 
-        async def unban_later():
-            await asyncio.sleep(total_seconds)
-            await message.guild.unban(discord.Object(id=user_id), reason="Время бана истекло")
+            async def unban_later():
+                await asyncio.sleep(total_seconds)
+                await message.guild.unban(discord.Object(id=user_id), reason="Время бана истекло")
 
-        bot.loop.create_task(unban_later())
+            bot.loop.create_task(unban_later())
 
-    except Exception as e:
-        await send_error_embed(message.channel, message.author, f"Не удалось забанить пользователя: {e}", template)
+        except Exception as e:
+            await send_error_embed(message.channel, message.author, f"Не удалось забанить пользователя: {e}", template)
 
-    await bot.process_commands(message)
+    await bot.process_commands(message)  # <-- ВЫЗЫВАЕМ КОМАНДЫ ДЛЯ ВСЕХ ДРУГИХ СЛУЧАЕВ
 
 bot.run(os.getenv("DISCORD_TOKEN"))

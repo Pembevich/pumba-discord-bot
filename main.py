@@ -339,6 +339,28 @@ async def on_message(message):
         except Exception as e:
             await send_error_embed(message.channel, message.author, f"Не удалось забанить пользователя: {e}", template)
 
-    await bot.process_commands(message)  # <-- ВЫЗЫВАЕМ КОМАНДЫ ДЛЯ ВСЕХ ДРУГИХ СЛУЧАЕВ
+        # Обработка !gif
+    if message.content.startswith("!gif"):
+        if not message.attachments:
+            await message.channel.send("❌ Пожалуйста, прикрепи изображение или видео к сообщению.")
+            return
+
+        allowed_types = [
+            "image/jpeg", "image/png", "image/gif", "image/webp",
+            "video/mp4", "video/quicktime", "video/webm"
+        ]
+
+        attachment = message.attachments[0]
+        content_type = attachment.content_type or ""
+
+        if content_type.lower() in allowed_types:
+            await message.channel.send(f"✅ Файл принят: {attachment.url}")
+        else:
+            await message.channel.send(
+                "❌ Неподдерживаемый формат. Поддерживаются: jpg, png, gif, webp, mp4, mov, webm."
+            )
+        return
+
+    await bot.process_commands(message)
 
 bot.run(os.getenv("DISCORD_TOKEN"))

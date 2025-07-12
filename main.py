@@ -127,39 +127,56 @@ async def gif_command(ctx):
         await ctx.send("❌ Прикрепи хотя бы одно изображение или видео.")
         return
 
+    supported_image_exts = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'heic']
+    supported_video_exts = ['mp4', 'mov', 'webm', 'avi', 'mkv']
     input_files = []
+
     for i, attachment in enumerate(ctx.message.attachments):
         url = attachment.url
-        ext = url.split(".")[-1].lower()
+        ext = url.split('.')[-1].lower()
 
-        if ext not in ['mp4', 'mov', 'webm', 'jpg', 'jpeg', 'png']:
-            await ctx.send(f"❌ Файл `{attachment.filename}` не поддерживается.")
-            return
-
+        # Скачиваем файл
         input_path = f"tmp_input_{i}.{ext}"
         with open(input_path, 'wb') as f:
             f.write(requests.get(url).content)
-        input_files.append((input_path, ext))
+
+        # Преобразование HEIC/WEBP/BMP в PNG (если нужно)
+        if ext in ['heic', 'webp', 'bmp']:
+            new_path = f"converted_input_{i}.png"
+            try:
+                image = Image.open(input_path).convert("RGB")
+                image.save(new_path, format='PNG')
+                input_files.append((new_path, 'image'))
+            except Exception as e:
+                await ctx.send(f"❌ Ошибка при обработке изображения: `{attachment.filename}`: {e}")
+                return
+            finally:
+                os.remove(input_path)
+        elif ext in supported_image_exts:
+            input_files.append((input_path, 'image'))
+        elif ext in supported_video_exts:
+            input_files.append((input_path, 'video'))
+        else:
+            await ctx.send(f"❌ Файл `{attachment.filename}` не поддерживается.")
+            return
 
     output_path = "tmp_output.gif"
 
     try:
         if len(input_files) == 1:
-            path, ext = input_files[0]
-            if ext in ['mp4', 'mov', 'webm']:
+            path, filetype = input_files[0]
+            if filetype == 'video':
                 clip = VideoFileClip(path).subclip(0, 5).resize(width=320)
                 clip.write_gif(output_path)
             else:
                 clip = ImageSequenceClip([path], fps=1)
                 clip.write_gif(output_path, fps=1)
         else:
-            images = []
-            for path, ext in input_files:
-                if ext in ['jpg', 'jpeg', 'png']:
-                    images.append(path)
-                else:
-                    await ctx.send("❌ Для мультифайловой GIF поддерживаются только изображения.")
-                    return
+            # GIF из нескольких изображений
+            images = [path for path, filetype in input_files if filetype == 'image']
+            if len(images) != len(input_files):
+                await ctx.send("❌ Для мультифайловой GIF поддерживаются только изображения.")
+                return
             clip = ImageSequenceClip(images, fps=1)
             clip.write_gif(output_path, fps=1)
 

@@ -272,7 +272,7 @@ async def on_member_join(member):
                 print(f"❌ Не удалось выдать роль: {e}")
 
 # --- Проверка шаблона и бан ---
-target_channel_id = 1393342266503987270
+target_channel_id = 1392735009957347419
 
 async def send_error_embed(channel, author, error_text, example_template):
     now = datetime.now().strftime("%d.%m.%Y %H:%M:%S МСК")

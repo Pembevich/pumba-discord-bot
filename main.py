@@ -122,73 +122,58 @@ async def info(ctx):
 
 # --- Команда !gif ---
 @bot.command(name='gif')
-async def gif_command(ctx):
+async def gif(ctx):
     if not ctx.message.attachments:
-        await ctx.send("❌ Прикрепи хотя бы одно изображение или видео.")
+        await ctx.send("❌ Пожалуйста, прикрепи изображение или видео к команде.")
         return
 
-    supported_image_exts = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'heic']
-    supported_video_exts = ['mp4', 'mov', 'webm', 'avi', 'mkv']
-    input_files = []
+    image_files = []
+    video_files = []
 
-    for i, attachment in enumerate(ctx.message.attachments):
-        url = attachment.url
-        ext = url.split('.')[-1].lower()
+    os.makedirs("temp", exist_ok=True)
 
-        # Скачиваем файл
-        input_path = f"tmp_input_{i}.{ext}"
-        with open(input_path, 'wb') as f:
-            f.write(requests.get(url).content)
+    for attachment in ctx.message.attachments:
+        filename = attachment.filename
+        ext = os.path.splitext(filename)[1].lower().strip(".")
 
-        # Преобразование HEIC/WEBP/BMP в PNG (если нужно)
-        if ext in ['heic', 'webp', 'bmp']:
-            new_path = f"converted_input_{i}.png"
-            try:
-                image = Image.open(input_path).convert("RGB")
-                image.save(new_path, format='PNG')
-                input_files.append((new_path, 'image'))
-            except Exception as e:
-                await ctx.send(f"❌ Ошибка при обработке изображения: `{attachment.filename}`: {e}")
-                return
-            finally:
-                os.remove(input_path)
-        elif ext in supported_image_exts:
-            input_files.append((input_path, 'image'))
-        elif ext in supported_video_exts:
-            input_files.append((input_path, 'video'))
+        # Генерируем уникальное имя файла
+        unique_name = f"{uuid.uuid4().hex}.{ext}"
+        file_path = os.path.join("temp", unique_name)
+        await attachment.save(file_path)
+
+        if ext in ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'heic']:
+            image_files.append(file_path)
+        elif ext in ['mp4', 'mov', 'webm', 'avi', 'mkv']:
+            video_files.append(file_path)
         else:
-            await ctx.send(f"❌ Файл `{attachment.filename}` не поддерживается.")
+            await ctx.send(f"❌ Файл `{filename}` не поддерживается.")
+            os.remove(file_path)
             return
 
-    output_path = "tmp_output.gif"
+    output_path = f"temp/{uuid.uuid4().hex}.gif"
 
     try:
-        if len(input_files) == 1:
-            path, filetype = input_files[0]
-            if filetype == 'video':
-                clip = VideoFileClip(path).subclip(0, 5).resize(width=320)
-                clip.write_gif(output_path)
-            else:
-                clip = ImageSequenceClip([path], fps=1)
-                clip.write_gif(output_path, fps=1)
-        else:
-            # GIF из нескольких изображений
-            images = [path for path, filetype in input_files if filetype == 'image']
-            if len(images) != len(input_files):
-                await ctx.send("❌ Для мультифайловой GIF поддерживаются только изображения.")
-                return
-            clip = ImageSequenceClip(images, fps=1)
+        if image_files:
+            clip = ImageSequenceClip(image_files, fps=1)
             clip.write_gif(output_path, fps=1)
+        elif video_files:
+            clip = VideoFileClip(video_files[0])
+            clip = clip.subclip(0, min(5, clip.duration))  # максимум 5 сек
+            clip.write_gif(output_path)
+        else:
+            await ctx.send("❌ Не удалось обработать вложения.")
+            return
 
         await ctx.send(file=discord.File(output_path))
 
     except Exception as e:
-        await ctx.send(f"⚠️ Ошибка при создании GIF: `{e}`")
+        await ctx.send(f"❌ Ошибка при создании GIF: {e}")
 
     finally:
-        for path, _ in input_files:
-            if os.path.exists(path):
-                os.remove(path)
+        # Удаляем все временные файлы
+        for f in image_files + video_files:
+            if os.path.exists(f):
+                os.remove(f)
         if os.path.exists(output_path):
             os.remove(output_path)
 

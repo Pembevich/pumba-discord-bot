@@ -191,12 +191,12 @@ async def sbor(interaction: discord.Interaction, role: discord.Role):
         role: discord.PermissionOverwrite(connect=True, view_channel=True)
     }
 
-    category = interaction.channel.category  # Получаем категорию текущего текстового канала
+    category = interaction.channel.category
 
     voice_channel = await interaction.guild.create_voice_channel(
         "Сбор",
         overwrites=overwrites,
-        category=category  # Устанавливаем категорию
+        category=category
     )
 
     sbor_channels[interaction.guild.id] = voice_channel.id
@@ -210,7 +210,7 @@ async def sbor(interaction: discord.Interaction, role: discord.Role):
     await webhook.delete()
 
     await interaction.followup.send("✅ Сбор создан!")
-    
+
 # --- /sbor_end ---
 @bot.tree.command(name="sbor_end", description="Завершить сбор и удалить голосовой канал")
 async def sbor_end(interaction: discord.Interaction):
@@ -240,17 +240,35 @@ async def sbor_end(interaction: discord.Interaction):
     sbor_channels.pop(interaction.guild.id, None)
     await interaction.followup.send("✅ Сбор завершён.")
 
-# --- Запуск ---
+# --- on_ready ---
 @bot.event
 async def on_ready():
     await bot.tree.sync()
     print(f"✅ Бот запущен как {bot.user}")
 
-target_channel_id = 1393342266503987270  # Канал, где бот проверяет шаблон
+# --- Автоматическая выдача роли при входе ---
+@bot.event
+async def on_member_join(member):
+    guild_roles_map = {
+        1392735009957347419: 1392735552054366321  # Замените на нужный ID роли
+    }
+
+    role_id = guild_roles_map.get(member.guild.id)
+    if role_id:
+        role = member.guild.get_role(role_id)
+        if role:
+            try:
+                await member.add_roles(role, reason="Автоматическая выдача роли при входе")
+                print(f"✅ Роль {role.name} выдана {member.name}")
+            except Exception as e:
+                print(f"❌ Не удалось выдать роль: {e}")
+
+# --- Проверка шаблона и бан ---
+target_channel_id = 1393342266503987270
 
 async def send_error_embed(channel, author, error_text, example_template):
     now = datetime.now().strftime("%d.%m.%Y %H:%M:%S МСК")
-    
+
     embed = Embed(
         title="❌ Ошибка отправки отчёта",
         description=error_text,
@@ -258,7 +276,7 @@ async def send_error_embed(channel, author, error_text, example_template):
     )
     embed.add_field(name="📝 Как оформить правильно", value=f"```{example_template}```", inline=False)
     embed.set_footer(text=f"Вызвал: {author.name} | ID: {author.id} | {now}")
-    
+
     await channel.send(embed=embed)
 
 @bot.event
@@ -276,71 +294,23 @@ async def on_message(message):
 
     lines = [line.strip() for line in message.content.strip().split("\n") if line.strip()]
     if len(lines) != 5:
-        await send_error_embed(
-            message.channel,
-            message.author,
-            "Неверное количество строк. Ожидается 5 строк (Никнейм, Дс айди, Время, Причина, Док-ва).",
-            template
-        )
+        await send_error_embed(message.channel, message.author, "Неверное количество строк.", template)
         return
 
     nickname_line, id_line, time_line, reason_line, evidence_line = lines
 
-    if not nickname_line.lower().startswith("никнейм:"):
-        await send_error_embed(
-            message.channel,
-            message.author,
-            "Строка 1 должна начинаться с `Никнейм:`",
-            template
-        )
+    if not nickname_line.lower().startswith("никнейм:") \
+        or not id_line.lower().startswith("дс айди:") \
+        or not time_line.lower().startswith("время:") \
+        or not reason_line.lower().startswith("причина:") \
+        or not evidence_line.lower().startswith("док-ва:"):
+        await send_error_embed(message.channel, message.author, "Некорректный шаблон.", template)
         return
 
-    if not id_line.lower().startswith("дс айди:"):
-        await send_error_embed(
-            message.channel,
-            message.author,
-            "Строка 2 должна начинаться с `Дс айди:`",
-            template
-        )
-        return
-
-    if not time_line.lower().startswith("время:"):
-        await send_error_embed(
-            message.channel,
-            message.author,
-            "Строка 3 должна начинаться с `Время:`",
-            template
-        )
-        return
-
-    if not reason_line.lower().startswith("причина:"):
-        await send_error_embed(
-            message.channel,
-            message.author,
-            "Строка 4 должна начинаться с `Причина:`",
-            template
-        )
-        return
-
-    if not evidence_line.lower().startswith("док-ва:"):
-        await send_error_embed(
-            message.channel,
-            message.author,
-            "Строка 5 должна начинаться с `Док-ва:`",
-            template
-        )
-        return
-
-    # Извлечение данных
     try:
         user_id = int(id_line.split(":", 1)[1].strip())
     except ValueError:
-        await send_error_embed(
-            message.channel,
-            message.author,
-            "`Дс айди` должен быть числом.",
-            template
-        )
+        await send_error_embed(message.channel, message.author, "`Дс айди` должен быть числом.", template)
         return
 
     time_text = time_line.split(":", 1)[1].strip()
@@ -354,15 +324,9 @@ async def on_message(message):
         total_seconds += int(m_match.group(1)) * 60
 
     if total_seconds == 0:
-        await send_error_embed(
-            message.channel,
-            message.author,
-            "Указано некорректное время. Примеры: `1h`, `30min`, `1h 15min`.",
-            template
-        )
+        await send_error_embed(message.channel, message.author, "Некорректное время.", template)
         return
 
-    # Бан
     try:
         member = await message.guild.fetch_member(user_id)
         reason = reason_line.split(":", 1)[1].strip()
@@ -376,12 +340,7 @@ async def on_message(message):
         bot.loop.create_task(unban_later())
 
     except Exception as e:
-        await send_error_embed(
-            message.channel,
-            message.author,
-            f"Не удалось забанить пользователя: {e}",
-            template
-        )
+        await send_error_embed(message.channel, message.author, f"Не удалось забанить пользователя: {e}", template)
 
     await bot.process_commands(message)
 

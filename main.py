@@ -18,6 +18,8 @@ allowed_guild_ids = [1392735009957347419]  # Укажи нужные ID серв
 sbor_channels = {}  # guild_id -> channel_id
 
 intents = discord.Intents.all()
+intents = discord.Intents.default()
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # --- База данных ---
@@ -124,43 +126,57 @@ async def info(ctx):
 @bot.command(name='gif')
 async def gif_command(ctx):
     if not ctx.message.attachments:
-        await ctx.send("❌ Прикрепи файл.")
+        await ctx.send("❌ Прикрепи хотя бы одно изображение или видео.")
         return
 
-    attachment = ctx.message.attachments[0]
-    url = attachment.url
-    filename = url.split("/")[-1]
-    ext = filename.split(".")[-1].lower()
+    input_files = []
+    for i, attachment in enumerate(ctx.message.attachments):
+        url = attachment.url
+        ext = url.split(".")[-1].lower()
 
-    if ext not in ['mp4', 'mov', 'webm', 'jpg', 'jpeg', 'png']:
-        await ctx.send("❌ Поддерживаются только видео или изображения.")
-        return
+        if ext not in ['mp4', 'mov', 'webm', 'jpg', 'jpeg', 'png']:
+            await ctx.send(f"❌ Файл `{attachment.filename}` не поддерживается.")
+            return
 
-    input_path = f"tmp_input.{ext}"
+        input_path = f"tmp_input_{i}.{ext}"
+        with open(input_path, 'wb') as f:
+            f.write(requests.get(url).content)
+        input_files.append((input_path, ext))
+
     output_path = "tmp_output.gif"
 
-    # Скачиваем файл
-    with open(input_path, 'wb') as f:
-        f.write(requests.get(url).content)
-
     try:
-        if ext in ['mp4', 'mov', 'webm']:
-            clip = VideoFileClip(input_path).subclip(0, 5).resize(width=320)
-            clip.write_gif(output_path)
+        if len(input_files) == 1:
+            path, ext = input_files[0]
+            if ext in ['mp4', 'mov', 'webm']:
+                clip = VideoFileClip(path).subclip(0, 5).resize(width=320)
+                clip.write_gif(output_path)
+            else:
+                clip = ImageSequenceClip([path], fps=1)
+                clip.write_gif(output_path, fps=1)
         else:
-            clip = ImageSequenceClip([input_path], fps=1)
+            images = []
+            for path, ext in input_files:
+                if ext in ['jpg', 'jpeg', 'png']:
+                    images.append(path)
+                else:
+                    await ctx.send("❌ Для мультифайловой GIF поддерживаются только изображения.")
+                    return
+            clip = ImageSequenceClip(images, fps=1)
             clip.write_gif(output_path, fps=1)
 
         await ctx.send(file=discord.File(output_path))
 
     except Exception as e:
-        await ctx.send(f"⚠️ Ошибка при конвертации: `{e}`")
+        await ctx.send(f"⚠️ Ошибка при создании GIF: `{e}`")
 
     finally:
-        if os.path.exists(input_path):
-            os.remove(input_path)
+        for path, _ in input_files:
+            if os.path.exists(path):
+                os.remove(path)
         if os.path.exists(output_path):
             os.remove(output_path)
+
 
 # --- /sbor ---
 @bot.tree.command(name="sbor", description="Начать сбор: создаёт голосовой канал и пингует роль")

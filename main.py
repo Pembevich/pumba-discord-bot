@@ -11,6 +11,8 @@ import re
 import asyncio
 from discord import Embed, Color
 from datetime import datetime
+import requests
+from moviepy.editor import VideoFileClip, ImageSequenceClip
 
 allowed_guild_ids = [1392735009957347419]  # Укажи нужные ID серверов
 sbor_channels = {}  # guild_id -> channel_id
@@ -119,57 +121,46 @@ async def info(ctx):
     await ctx.send(embed=embed)
 
 # --- Команда !gif ---
-@bot.command()
-async def gif(ctx):
-    attachments = ctx.message.attachments
-
-    if not attachments:
-        await ctx.send("❌ Прикрепи изображения или видео для создания GIF.")
+@bot.command(name='gif')
+async def gif_command(ctx):
+    if not ctx.message.attachments:
+        await ctx.send("❌ Прикрепи файл.")
         return
 
-    files = []
-    for a in attachments:
-        filename = a.filename.lower()
-        if filename.endswith((".jpg", ".jpeg", ".png")):
-            files.append(("image", await a.read()))
-        elif filename.endswith((".mp4", ".mov", ".webm")):
-            files.append(("video", await a.read()))
-        else:
-            continue
+    attachment = ctx.message.attachments[0]
+    url = attachment.url
+    filename = url.split("/")[-1]
+    ext = filename.split(".")[-1].lower()
 
-    if not files:
-        await ctx.send("❌ Поддерживаются только изображения и видео.")
+    if ext not in ['mp4', 'mov', 'webm', 'jpg', 'jpeg', 'png']:
+        await ctx.send("❌ Поддерживаются только видео или изображения.")
         return
 
-    if files[0][0] == "video":
-        video_data = io.BytesIO(files[0][1])
-        unique_id = str(uuid.uuid4())
-        temp_video_path = f"{unique_id}.mp4"
-        temp_gif_path = f"{unique_id}.gif"
+    input_path = f"tmp_input.{ext}"
+    output_path = "tmp_output.gif"
 
-        with open(temp_video_path, "wb") as f:
-            f.write(video_data.read())
+    # Скачиваем файл
+    with open(input_path, 'wb') as f:
+        f.write(requests.get(url).content)
 
-        try:
-            clip = mp.VideoFileClip(temp_video_path).subclip(0, 5)
-            clip = clip.resize(width=320)
-            clip.write_gif(temp_gif_path)
-            await ctx.send(file=discord.File(temp_gif_path))
-        except Exception as e:
-            await ctx.send(f"❌ Ошибка при создании GIF: {e}")
-        finally:
-            if os.path.exists(temp_video_path):
-                os.remove(temp_video_path)
-            if os.path.exists(temp_gif_path):
-                os.remove(temp_gif_path)
-    else:
-        images = [Image.open(io.BytesIO(img[1])).convert("RGBA") for img in files]
-        if len(images) == 1:
-            images[0].save("output.gif", save_all=True, append_images=[images[0]] * 10, duration=100, loop=0)
+    try:
+        if ext in ['mp4', 'mov', 'webm']:
+            clip = VideoFileClip(input_path).subclip(0, 5).resize(width=320)
+            clip.write_gif(output_path)
         else:
-            images[0].save("output.gif", save_all=True, append_images=images[1:], duration=300, loop=0)
-        await ctx.send(file=discord.File("output.gif"))
-        os.remove("output.gif")
+            clip = ImageSequenceClip([input_path], fps=1)
+            clip.write_gif(output_path, fps=1)
+
+        await ctx.send(file=discord.File(output_path))
+
+    except Exception as e:
+        await ctx.send(f"⚠️ Ошибка при конвертации: `{e}`")
+
+    finally:
+        if os.path.exists(input_path):
+            os.remove(input_path)
+        if os.path.exists(output_path):
+            os.remove(output_path)
 
 # --- /sbor ---
 @bot.tree.command(name="sbor", description="Начать сбор: создаёт голосовой канал и пингует роль")

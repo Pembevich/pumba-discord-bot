@@ -18,7 +18,7 @@ allowed_guild_ids = [1392735009957347419]  # Укажи нужные ID серв
 sbor_channels = {}  # guild_id -> channel_id
 
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix=">", intents=intents)
 
 # --- База данных ---
 conn = sqlite3.connect("bot_data.db")

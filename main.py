@@ -15,14 +15,16 @@ import requests
 from moviepy.editor import VideoFileClip, ImageSequenceClip
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import json
 
 # Google Sheets setup
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 gs_client = gspread.authorize(creds)
 
 # Открываем таблицу
-sheet = gs_client.open("Баны ПУМБА").sheet1  # Точное название твоей таблицы
+sheet = gs_client.open("Баны ПУМБА").sheet1
 
 allowed_guild_ids = [1392735009957347419]  # Укажи нужные ID серверов
 sbor_channels = {}  # guild_id -> channel_id

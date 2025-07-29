@@ -17,17 +17,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
 
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
-raw_creds = os.getenv("GOOGLE_CREDENTIALS")
-if not raw_creds:
-    raise Exception("❌ GOOGLE_CREDENTIALS переменная не найдена!")
-
-creds_dict = json.loads(raw_creds)
-creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-gs_client = gspread.authorize(creds)
-
-sheet = gs_client.open("Баны ПУМБА").sheet1
 allowed_guild_ids = [1392735009957347419]  # Укажи нужные ID серверов
 sbor_channels = {}  # guild_id -> channel_id
 
@@ -364,12 +354,6 @@ async def on_message(message):
             # Бан по ID, даже если пользователя нет на сервере
             await message.guild.ban(discord.Object(id=user_id), reason=reason)
             await message.add_reaction("✅")
-
-            # Добавляем в таблицу
-            try:
-                sheet.append_row([nickname, str(user_id), time_text, reason])
-            except Exception as e:
-                print(f"❌ Ошибка записи в таблицу: {e}")
             
             
             # Отложенный разбан (если не перманентный)

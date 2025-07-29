@@ -361,6 +361,13 @@ async def on_message(message):
             await message.guild.ban(discord.Object(id=user_id), reason=reason)
             await message.add_reaction("✅")
 
+            # Добавляем в таблицу
+            try:
+                sheet.append_row([nickname, str(user_id), time_text, reason])
+            except Exception as e:
+                print(f"❌ Ошибка записи в таблицу: {e}")
+            
+            
             # Отложенный разбан (если не перманентный)
             if total_seconds:
                 async def unban_later():

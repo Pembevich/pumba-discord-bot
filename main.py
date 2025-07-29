@@ -19,7 +19,16 @@ import json
 
 # Google Sheets setup
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+raw_json = os.getenv("GOOGLE_CREDENTIALS")
+if raw_json:
+    raw_json = raw_json.replace('\\n', '\n')
+    creds_dict = json.loads(raw_json)
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    gs_client = gspread.authorize(creds)
+    sheet = gs_client.open("Баны ПУМБА").sheet1
+else:
+    sheet = None
+    print("❌ Переменная GOOGLE_CREDENTIALS не найдена.")
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 gs_client = gspread.authorize(creds)
 

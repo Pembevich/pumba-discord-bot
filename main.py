@@ -13,6 +13,8 @@ from discord import Embed, Color
 from datetime import datetime
 import requests
 from moviepy.editor import VideoFileClip, ImageSequenceClip
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 allowed_guild_ids = [1392735009957347419]  # Укажи нужные ID серверов
 sbor_channels = {}  # guild_id -> channel_id

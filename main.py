@@ -17,24 +17,22 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
 
-# Google Sheets setup
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-raw_json = os.getenv("GOOGLE_CREDENTIALS")
-if raw_json:
-    raw_json = raw_json.replace('\\n', '\n')
-    creds_dict = json.loads(raw_json)
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    gs_client = gspread.authorize(creds)
-    sheet = gs_client.open("Баны ПУМБА").sheet1
-else:
-    sheet = None
-    print("❌ Переменная GOOGLE_CREDENTIALS не найдена.")
-creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+
+# Загружаем из переменной окружения и фиксируем переносы строк
+raw_creds = os.getenv("GOOGLE_CREDENTIALS")
+if not raw_creds:
+    raise Exception("❌ Переменная GOOGLE_CREDENTIALS не найдена!")
+
+# Заменяем \\n на \n в ключе
+fixed_creds = json.loads(raw_creds.replace('\\n', '\n'))
+
+# Авторизация
+creds = ServiceAccountCredentials.from_json_keyfile_dict(fixed_creds, scope)
 gs_client = gspread.authorize(creds)
 
 # Открываем таблицу
 sheet = gs_client.open("Баны ПУМБА").sheet1
-
 allowed_guild_ids = [1392735009957347419]  # Укажи нужные ID серверов
 sbor_channels = {}  # guild_id -> channel_id
 

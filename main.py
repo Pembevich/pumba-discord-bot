@@ -19,19 +19,14 @@ import json
 
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
-# Загружаем из переменной окружения и фиксируем переносы строк
 raw_creds = os.getenv("GOOGLE_CREDENTIALS")
 if not raw_creds:
-    raise Exception("❌ Переменная GOOGLE_CREDENTIALS не найдена!")
+    raise Exception("❌ GOOGLE_CREDENTIALS переменная не найдена!")
 
-# Заменяем \\n на \n в ключе
-fixed_creds = json.loads(raw_creds.replace('\\n', '\n'))
-
-# Авторизация
-creds = ServiceAccountCredentials.from_json_keyfile_dict(fixed_creds, scope)
+creds_dict = json.loads(raw_creds)
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 gs_client = gspread.authorize(creds)
 
-# Открываем таблицу
 sheet = gs_client.open("Баны ПУМБА").sheet1
 allowed_guild_ids = [1392735009957347419]  # Укажи нужные ID серверов
 sbor_channels = {}  # guild_id -> channel_id

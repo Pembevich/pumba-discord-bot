@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "pumba-bot",
+  "private_key_id": "eb81a28e8d079b7429819e46ee4021efad1a870a",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCwcjqBsHv3Rlid\nkICmOcZxnoNdotMMnwwozWB56QtKvHVvOg2OH2W8OXvtYZNNPWCEjgYNpfu/3SDZ\nqKwOgBnlxsj+8zM+DVmwGs7tc9u24pZJ0DyyM4b1F8eWsR3bqTOia5p+t64lmds0\nd0LtC9ZytglWYRfSRta1HITBemMc1vRTyS03B6FqvsgUWr9SMIMbINMqKseV+EIg\nM+s25JYZjk+Om111JN32kUK/sfmfjYHItTsNnPyVu9701HxsUgImYynGW81YhWbp\n74bfkUYCqKuUTFVmi4HIVVZnPHCM+Us440m6jJc18P4CBOGMVxo9jPLngueTrB2o\nK5h72q57AgMBAAECggEADK3wuWAa0G6sMIpxTECrm3+WFhT80JPfVlFH5QrTpme7\nkqYb0kI8V9XTq3/PC4ZlGLFyCuoKGMQFt85wqswW0FXEHNoSLRvdfZO3mgWw3MgU\nn7JIok+km5k9XP1WVXInxTyxSfjeGVKgl3kYhJtMqkqdiikJArHXfQVTHuoyFCDZ\ntnYizxAdoyQvC1fsIVjB6RIeeAqiLo8YAdPg+XzBjw+XOqe6o1+sykTKKFuPTyA+\n87EYJ8n0yLlBvC3nrcqyS+PHSpGBhHTBsv4JxVGa0iT3gOJFDR034wgxoryicMdP\n1sHv0tWwUVvX/sOBiS718HhI3mp+SGH7IIgiR12+yQKBgQDcDyHuDMNWLMFEDTjY\nynLnyPKNupfOpGjOJxZqfIyL0BsBczOrhM4RXf9+KaBzo1+xZF4hhYQD3xYa5Y6Z\nBtWhCjO4P9y7bH7eQ6l29Fp5LPhkxd0ilXCBqwAcMdGtX2x1TOtpipnJDaHRfRF3\nb29SjFhfcXXP96WRhsLzDYSMswKBgQDNQ5n+7hipGtSL9nI+TdryONIvrw8WV0ba\nogMtUo/BPUsQc5OL1ABcWW2RwNYnt8QjLtJyYvAJLJpFdn3bldghlny7Inz/7nTt\nR7taV80luVoxO/p+tQq/TlUcCyqAWWdLfqqFA4mBUc2Qj05W6ga6+eW2BaVWueGO\nW8Z6kc3LGQKBgQCjF0gDQExJArRdthrqeOg+Jmy1Y5P831aZativJQ2Y1Swen/2s\nYanDr1GadElpSqyyMPuehnB32g9s8bMEcM9FIeWA6TuzYE6KdcUT1zdyVUTmkso4\nRl7yiwRy4O1QO8eLC+3w83rUShkixDl8tgbgPAmG+vTgo95+g0zai6swBwKBgAzn\naw7zuOkonqQN4jC4hEMl/1CwGKq24eVsufZnclIboFRwb54ivcMQfCrljJECpHnx\nv5khTyXEgA5N3KupR+UUqNK64FDWlNM15zlOu77bYCgoNR8yEnLkYcVZjlpzRGMi\nm2WxSzuuANZNrAcav0GR5DcFM9e3584jRt79u4pBAoGBAJP+O+oxKJERceS44SaK\nsQ+k5NXDiTypDERjS56jNOxI0Z6RamNqVnv7/M+C1U+hFgSIylDvbm50XT8EO/oP\nh76IBHfnPog1pU4UBm7fqFqhqbz+XcHqp4/bJftwXLv+8DBdBX6xsNcTQghFcDEe\nmfZ5OHnj99yakSeKodhD5GEi\n-----END PRIVATE KEY-----\n",
+  "client_email": "bot-pumba@pumba-bot.iam.gserviceaccount.com",
+  "client_id": "113858410557602004196",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/bot-pumba%40pumba-bot.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
